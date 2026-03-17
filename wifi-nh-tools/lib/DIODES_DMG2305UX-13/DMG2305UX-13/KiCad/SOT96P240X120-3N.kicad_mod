@@ -1,0 +1,237 @@
+(footprint "SOT96P240X120-3N"
+	(version 20241229)
+	(generator "pcbnew")
+	(generator_version "9.0")
+	(layer "F.Cu")
+	(descr "DMG2305UX-13-1")
+	(tags "Diode")
+	(property "Reference" "D**"
+		(at 0 3 0)
+		(layer "F.SilkS")
+		(uuid "508ccdf6-e2f8-483d-8729-e1cb7a496f36")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.254)
+			)
+		)
+	)
+	(property "Value" "SOT96P240X120-3N"
+		(at 0 0 0)
+		(layer "F.SilkS")
+		(hide yes)
+		(uuid "87d1c501-0039-4851-9d3f-68c11c05f5ec")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.254)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "55a7f89f-32f7-4f26-9a89-460e14140b70")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Description" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "76020c79-e0a0-496c-992a-bd2349b3a964")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(attr smd)
+	(fp_line
+		(start -1.65 -1.535)
+		(end -0.45 -1.535)
+		(stroke
+			(width 0.2)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "d3c9b9f3-dd1d-4905-8907-da1e204b7b5e")
+	)
+	(fp_line
+		(start -0.1 -1.45)
+		(end 0.1 -1.45)
+		(stroke
+			(width 0.2)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "1d11afeb-c5d3-4e52-91b6-b4f9ba120de5")
+	)
+	(fp_line
+		(start -0.1 1.45)
+		(end -0.1 -1.45)
+		(stroke
+			(width 0.2)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "659d7387-c2ef-44c6-af99-be44872a03b4")
+	)
+	(fp_line
+		(start 0.1 -1.45)
+		(end 0.1 1.45)
+		(stroke
+			(width 0.2)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "2f6c67be-24c3-42a7-aef7-b22c8ad67c31")
+	)
+	(fp_line
+		(start 0.1 1.45)
+		(end -0.1 1.45)
+		(stroke
+			(width 0.2)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "569eba80-7d40-41e7-b90b-73fe536b510b")
+	)
+	(fp_line
+		(start -1.9 -1.75)
+		(end 1.9 -1.75)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "22d272ab-23e5-43dc-94d3-2d0e72919832")
+	)
+	(fp_line
+		(start -1.9 1.75)
+		(end -1.9 -1.75)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "ec9f7f8d-5aaa-49b5-8026-51460f26e606")
+	)
+	(fp_line
+		(start 1.9 -1.75)
+		(end 1.9 1.75)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "782aaf5e-7094-4ecd-a518-9b3326631e55")
+	)
+	(fp_line
+		(start 1.9 1.75)
+		(end -1.9 1.75)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "062f4b6a-1fe8-407e-93b0-31dd9438f70b")
+	)
+	(fp_line
+		(start -0.65 -1.45)
+		(end 0.65 -1.45)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "16c4cd35-4169-4332-b70d-578bcd4f4a1a")
+	)
+	(fp_line
+		(start -0.65 -0.49)
+		(end 0.31 -1.45)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "bfd1ebf3-ed90-48b7-b52a-f16064fefb62")
+	)
+	(fp_line
+		(start -0.65 1.45)
+		(end -0.65 -1.45)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "746a8af3-647f-440d-ab9e-c039b24f2033")
+	)
+	(fp_line
+		(start 0.65 -1.45)
+		(end 0.65 1.45)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "aa98ae05-a141-4072-98d2-f69f3e905123")
+	)
+	(fp_line
+		(start 0.65 1.45)
+		(end -0.65 1.45)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "391989cc-1336-4c31-be5e-14caf7c42e7c")
+	)
+	(fp_text user "${REFERENCE}"
+		(at 0 -3 0)
+		(layer "F.Fab")
+		(uuid "c89d7795-c808-4bca-9e3e-93dc67950b26")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.254)
+			)
+		)
+	)
+	(pad "1" smd rect
+		(at -1.05 -0.96 90)
+		(size 0.65 1.2)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(uuid "8e1eb35d-ce5c-4210-b177-686f9aa590e7")
+	)
+	(pad "2" smd rect
+		(at -1.05 0.96 90)
+		(size 0.65 1.2)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(uuid "7dc4684c-de48-4ec1-ad35-783a313a82c7")
+	)
+	(pad "3" smd rect
+		(at 1.05 0 90)
+		(size 0.65 1.2)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(uuid "2664e604-ba34-420e-b5e2-574ed8cc811a")
+	)
+	(embedded_fonts no)
+	(model "DMG2305UX-13.stp"
+		(offset
+			(xyz 0 0 0)
+		)
+		(scale
+			(xyz 1 1 1)
+		)
+		(rotate
+			(xyz 0 0 0)
+		)
+	)
+)

@@ -1,0 +1,11 @@
+FILE_TYPE = MULTI_PHYS_TABLE;
+
+PART 'IRM_03_3.3'
+CLASS = DISCRETE
+{========================================================================================}
+:"MANUFACTURER_NAME", "MANUFACTURER_PART_NUMBER"= "PART_NUMBER", "JEDEC_TYPE", "PACK_TYPE", "FARNELL_PART_NUMBER", "FARNELL_PRICE/STOCK", "DESCRIPTION", "DATASHEET", "HEIGHT";
+{========================================================================================}
+ "Mean Well", "IRM-03-3.3" (!) = "", "IRM035", "Other", "", "", "MEAN WELL - IRM-03-3.3 - POWER SUPPLY, AC-DC, 3.3V, 0.9A", "https://www.meanwell.com/Upload/PDF/IRM-03/IRM-03-SPEC.PDF", "15.5 mm"
+END_PART
+
+END.

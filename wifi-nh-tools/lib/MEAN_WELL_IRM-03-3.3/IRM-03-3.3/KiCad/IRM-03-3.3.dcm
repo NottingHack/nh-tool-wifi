@@ -1,0 +1,9 @@
+EESchema-DOCLIB  Version 2.0
+#
+$CMP IRM-03-3.3
+D MEAN WELL - IRM-03-3.3 - POWER SUPPLY, AC-DC, 3.3V, 0.9A
+K
+F https://www.meanwell.com/Upload/PDF/IRM-03/IRM-03-SPEC.PDF
+$ENDCMP
+#
+#End Doc Library

@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--/1141670/1330365/2.50/5/4/Power Supply/-->
+<quadcept_library>
+  <setting unit="mil" />
+  <textstyle name="Default" height="47.244094488189" strokewidth="7.8740157480315" charwidth="47.244094488189" />
+  <textstyle name="Dimension" height="19.6850393700787" strokewidth="0" charwidth="19.6850393700787" />
+  <textstyle name="H127W0635TH00762" height="50" strokewidth="3" charwidth="25" />
+  <textstyle name="H15W15TH02" height="59.0551181102362" strokewidth="7.8740157480315" charwidth="59.0551181102362" />
+  <padstyle name="c140_h90" surface="False" plated="True" isvia="False" nopaste="True" nomask="True" complex="False" holesize="35.433070866141">
+    <padshape layer="TOP" shape="round" width="55.11811023622" height="55.11811023622" />
+    <padshape layer="TOP_SOLDER_MASK" shape="round" width="62.992125984251" height="62.992125984251" />
+    <padshape layer="INNER" shape="round" width="55.11811023622" height="55.11811023622" />
+    <padshape layer="BOTTOM" shape="round" width="55.11811023622" height="55.11811023622" />
+    <padshape layer="BOTTOM_SOLDER_MASK" shape="round" width="62.992125984251" height="62.992125984251" />
+  </padstyle>
+  <padstyle name="c225_h450" surface="False" plated="True" isvia="False" nopaste="True" nomask="True" complex="False" holesize="177.16535433071">
+    <padshape layer="TOP" shape="round" width="88.582677165353" height="88.582677165353" />
+    <padshape layer="TOP_SOLDER_MASK" shape="round" width="96.456692913385" height="96.456692913385" />
+    <padshape layer="INNER" shape="round" width="88.582677165353" height="88.582677165353" />
+    <padshape layer="BOTTOM" shape="round" width="88.582677165353" height="88.582677165353" />
+    <padshape layer="BOTTOM_SOLDER_MASK" shape="round" width="96.456692913385" height="96.456692913385" />
+  </padstyle>
+  <footprint name="IRM035" originx="0" originy="0" pickpointx="0" pickpointy="0">
+    <pcbpin number="1" name="1" style="c140_h90" originx="0" originy="0" rotation="90" />
+    <pcbpin number="2" name="2" style="c140_h90" originx="200" originy="0" rotation="90" />
+    <pcbpin number="3" name="3" style="c140_h90" originx="1200" originy="0" rotation="90" />
+    <pcbpin number="4" name="4" style="c140_h90" originx="1200" originy="699.99999999999" rotation="90" />
+    <pcbpin number="5" name="5" style="c140_h90" originx="999.99999999999" originy="699.99999999999" rotation="90" />
+    <pcbpin number="6" name="6" style="c225_h450" originx="276.3779527559" originy="350.3937007874" rotation="90" />
+    <pcbpin number="7" name="7" style="c225_h450" originx="923.62204724408" originy="350.3937007874" rotation="90" />
+    <line layer="TOP_ASSEMBLY" originx="-128.34645669291" originy="-122.04724409449" endx="1328.3464566929" endy="-122.04724409449" width="7.8740157480314" />
+    <line layer="TOP_ASSEMBLY" originx="1328.3464566929" originy="-122.04724409449" endx="1328.3464566929" endy="822.83464566928" width="7.8740157480314" />
+    <line layer="TOP_ASSEMBLY" originx="1328.3464566929" originy="822.83464566928" endx="-128.34645669291" endy="822.83464566928" width="7.8740157480314" />
+    <line layer="TOP_ASSEMBLY" originx="-128.34645669291" originy="822.83464566928" endx="-128.34645669291" endy="-122.04724409449" width="7.8740157480314" />
+    <line layer="TOP_SILKSCREEN" originx="-128.34645669291" originy="-122.04724409449" endx="1328.3464566929" endy="-122.04724409449" width="3.9370078740157" />
+    <line layer="TOP_SILKSCREEN" originx="1328.3464566929" originy="-122.04724409449" endx="1328.3464566929" endy="822.83464566928" width="3.9370078740157" />
+    <line layer="TOP_SILKSCREEN" originx="1328.3464566929" originy="822.83464566928" endx="-128.34645669291" endy="822.83464566928" width="3.9370078740157" />
+    <line layer="TOP_SILKSCREEN" originx="-128.34645669291" originy="822.83464566928" endx="-128.34645669291" endy="-122.04724409449" width="3.9370078740157" />
+    <line layer="TOP_PLACE_BOUND" originx="-167.71653543307" originy="-161.41732283464" endx="1367.7165354331" endy="-161.41732283464" width="3.9370078740157" />
+    <line layer="TOP_PLACE_BOUND" originx="1367.7165354331" originy="-161.41732283464" endx="1367.7165354331" endy="862.20472440944" width="3.9370078740157" />
+    <line layer="TOP_PLACE_BOUND" originx="1367.7165354331" originy="862.20472440944" endx="-167.71653543307" endy="862.20472440944" width="3.9370078740157" />
+    <line layer="TOP_PLACE_BOUND" originx="-167.71653543307" originy="862.20472440944" endx="-167.71653543307" endy="-161.41732283464" width="3.9370078740157" />
+    <line layer="TOP_SILKSCREEN" originx="-149.6062992126" originy="-3.9370078740157" endx="-149.6062992126" endy="-3.9370078740157" width="7.8740157480314" />
+    <arc layer="TOP_SILKSCREEN" originx="-149.6062992126" originy="0" startangle="-90.0" sweepangle="180.0" radius="3.9370078740157" width="7.8740157480314" />
+    <line layer="TOP_SILKSCREEN" originx="-149.6062992126" originy="3.9370078740157" endx="-149.6062992126" endy="3.9370078740157" width="7.8740157480314" />
+    <arc layer="TOP_SILKSCREEN" originx="-149.6062992126" originy="0" startangle="90.0" sweepangle="180.0" radius="3.9370078740157" width="7.8740157480314" />
+  </footprint>
+  <symbol name="IRM-03-3.3" originx="0" originy="0">
+    <line originx="200" originy="100" endx="800" endy="100" width="0" />
+    <line originx="800" originy="-300" endx="800" endy="100" width="0" />
+    <line originx="800" originy="-300" endx="200" endy="-300" width="0" />
+    <line originx="200" originy="100" endx="200" endy="-300" width="0" />
+    <sympin number="1" originx="200" originy="0" rotation="180" length="100" width="7.8740157480315" flipped="False">
+      <text name="pinname" originx="230" originy="0" style="Default" rotation="0" justify="left" flipped="False" hidden="False" data="AC/L" />
+      <text name="pindes" originx="140" originy="20" style="Default" rotation="0" justify="lowerright" flipped="False" hidden="False" data="1" />
+    </sympin>
+    <sympin number="2" originx="200" originy="-100" rotation="180" length="100" width="7.8740157480315" flipped="False">
+      <text name="pinname" originx="230" originy="-100" style="Default" rotation="0" justify="left" flipped="False" hidden="False" data="AC/N" />
+      <text name="pindes" originx="140" originy="-80" style="Default" rotation="0" justify="lowerright" flipped="False" hidden="False" data="2" />
+    </sympin>
+    <sympin number="3" originx="200" originy="-200" rotation="180" length="100" width="7.8740157480315" flipped="False">
+      <text name="pinname" originx="230" originy="-200" style="Default" rotation="0" justify="left" flipped="False" hidden="False" data="NC" />
+      <text name="pindes" originx="140" originy="-180" style="Default" rotation="0" justify="lowerright" flipped="False" hidden="False" data="3" />
+    </sympin>
+    <sympin number="4" originx="800" originy="-100" rotation="0" length="100" width="7.8740157480315" flipped="False">
+      <text name="pinname" originx="770" originy="-100" style="Default" rotation="0" justify="right" flipped="False" hidden="False" data="-V" />
+      <text name="pindes" originx="860" originy="-80" style="Default" rotation="0" justify="lowerleft" flipped="False" hidden="False" data="4" />
+    </sympin>
+    <sympin number="5" originx="800" originy="0" rotation="0" length="100" width="7.8740157480315" flipped="False">
+      <text name="pinname" originx="770" originy="0" style="Default" rotation="0" justify="right" flipped="False" hidden="False" data="+V" />
+      <text name="pindes" originx="860" originy="20" style="Default" rotation="0" justify="lowerleft" flipped="False" hidden="False" data="5" />
+    </sympin>
+  </symbol>
+  <component name="IRM-03-3.3" designatorprefix="PS" height="610.23622047243" footprint="IRM035">
+    <comppin designator="1" sympin="1" pinswap="0" gateswap="0" gate="1" group="1" side="" type="Any" name="AC/L" />
+    <comppin designator="2" sympin="2" pinswap="0" gateswap="0" gate="1" group="1" side="" type="Any" name="AC/N" />
+    <comppin designator="3" sympin="3" pinswap="0" gateswap="0" gate="1" group="1" side="" type="Any" name="NC" />
+    <comppin designator="4" sympin="4" pinswap="0" gateswap="0" gate="1" group="1" side="" type="Any" name="-V" />
+    <comppin designator="5" sympin="5" pinswap="0" gateswap="0" gate="1" group="1" side="" type="Any" name="+V" />
+    <attached_symbol gate="1" name="IRM-03-3.3" />
+    <pinmap designator="1" footprintpin="1" />
+    <pinmap designator="2" footprintpin="2" />
+    <pinmap designator="3" footprintpin="3" />
+    <pinmap designator="4" footprintpin="4" />
+    <pinmap designator="5" footprintpin="5" />
+    <text name="Datasheet" originx="0" originy="0" style="Default" rotation="0" justify="" flipped="False" hidden="True" data="https://www.meanwell.com/Upload/PDF/IRM-03/IRM-03-SPEC.PDF" />
+    <text name="Description" originx="0" originy="0" style="Default" rotation="0" justify="" flipped="False" hidden="True" data="MEAN WELL - IRM-03-3.3 - POWER SUPPLY, AC-DC, 3.3V, 0.9A" />
+    <text name="Farnell Part Number" originx="0" originy="0" style="Default" rotation="0" justify="" flipped="False" hidden="True" data="" />
+    <text name="Farnell Price/Stock" originx="0" originy="0" style="Default" rotation="0" justify="" flipped="False" hidden="True" data="" />
+    <text name="Manufacturer_Name" originx="0" originy="0" style="Default" rotation="0" justify="" flipped="False" hidden="True" data="Mean Well" />
+    <text name="Manufacturer_Part_Number" originx="850" originy="200" style="Default" rotation="0" justify="left" flipped="False" hidden="False" data="IRM-03-3.3" />
+  </component>
+</quadcept_library>

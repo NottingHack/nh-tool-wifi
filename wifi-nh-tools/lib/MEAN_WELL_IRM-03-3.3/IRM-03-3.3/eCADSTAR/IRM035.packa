@@ -1,0 +1,13 @@
+(unit MM)
+
+(package "IRM-03-3_3"
+    (type UNDEF)
+    (uver 2)
+    (cuser "SamacSys")
+    (uuser "SamacSys")
+    (utime 2025-06-19-15:06:50)
+    (mountForm default
+        (footprintRef "IRM035")
+        (spec "System")
+    )
+)

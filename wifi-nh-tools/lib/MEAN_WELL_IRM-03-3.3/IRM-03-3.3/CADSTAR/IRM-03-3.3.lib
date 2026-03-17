@@ -1,0 +1,16 @@
+.IRM-03-3.3 :1 ;MEAN WELL - IRM-03-3.3 - POWER SUPPLY, AC-DC, 3.3V, 0.9A
+IRM035
+*STM PS
+*NGS
+*PLB 1="AC/L" 2="AC/N" 3="NC" 4="-V" 5="+V"
+*MXP 7
+*DFN IRM-03-3.3
+~!Farnell Part Number (-)
+~!Farnell Price/Stock (-)
+~!Manufacturer_Name (Mean Well)
+~!Manufacturer_Part_Number (IRM-03-3.3)
+~!Link Datasheet (https://www.meanwell.com/Upload/PDF/IRM-03/IRM-03-SPEC.PDF)
+~!Height (15.5mm)
+~!3D_Model (IRM-03-3.3)
+IRM-03-3.3
+1.1!U 2.1!U 3.1!U 4.1!U 5.1!U 
