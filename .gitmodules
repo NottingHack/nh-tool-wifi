@@ -1,3 +1,6 @@
 [submodule "firmware/libs/pico-mrfc522"]
 	path = firmware/libs/pico-mrfc522
 	url = https://github.com/BenjaminModica/pico-mfrc522.git
+[submodule "firmware/libs/pico-mqtt"]
+	path = firmware/libs/pico-mqtt
+	url = https://github.com/MKesenheimer/pico-mqtt.git
