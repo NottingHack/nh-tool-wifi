@@ -1,8 +1,12 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
+#include "FreeRTOS.h"
+#include "core_mqtt.h"
+
+#include "task.h"
 
 int main() {
     stdio_init_all();
-    printf("Hello, world 2!\n");
+
     return 0;
 }
