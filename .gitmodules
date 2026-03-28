@@ -1,6 +1,9 @@
-[submodule "firmware/libs/pico-mrfc522"]
-	path = firmware/libs/pico-mrfc522
-	url = https://github.com/BenjaminModica/pico-mfrc522.git
-[submodule "firmware/libs/pico-mqtt"]
-	path = firmware/libs/pico-mqtt
-	url = https://github.com/MKesenheimer/pico-mqtt.git
+[submodule "firmware/libs/pico-sdk"]
+	path = firmware/libs/pico-sdk
+	url = https://github.com/raspberrypi/pico-sdk.git
+[submodule "firmware/libs/FreeRTOS-Kernel"]
+	path = firmware/libs/FreeRTOS-Kernel
+	url = https://github.com/FreeRTOS/FreeRTOS-Kernel
+[submodule "firmware/libs/coreMQTT"]
+	path = firmware/libs/coreMQTT
+	url = https://github.com/FreeRTOS/coreMQTT.git
