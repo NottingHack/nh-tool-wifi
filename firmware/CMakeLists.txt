@@ -23,7 +23,7 @@ add_executable(nh-tool-wifi
     nh-tool-wifi.c
 )
 
-target_link_libraries(nh-tool-wifi pico_stdlib)
+target_link_libraries(nh-tool-wifi pico_stdlib FreeRTOS-Kernel FreeRTOS-Kernel-Heap4)
 
 pico_add_extra_outputs(nh-tool-wifi)
 
