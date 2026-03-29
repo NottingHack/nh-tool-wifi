@@ -1,10 +1,14 @@
+extern "C" {
 #include <stdio.h>
-#include "pico/stdlib.h"
 #include "FreeRTOS.h"
-#include "core_mqtt.h"
+#include "pico/cyw43_arch.h"
+#include "lwip/tcp.h"
+#include "lwip/apps/mqtt.h"
+#include "pico/stdlib.h"
 #include "config.h"
-
+#include "tool.h"
 #include "task.h"
+}
 
 void init_pins() {
   gpio_init(PIN_LED_INDUCT);
@@ -40,6 +44,9 @@ int main() {
 
     xTaskCreate(vBlinkTask, "Blink Task", 128, NULL, 1, NULL);
     vTaskStartScheduler();
+
+    Tool *tool;
+    tool->init("Bandsaw");
 
     return 0;
 }

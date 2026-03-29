@@ -16,14 +16,25 @@ include_directories(
   ${FREERTOS_KERNEL_PATH}/include
   ${FREERTOS_KERNEL_PATH}/portable/ThirdParty/GCC/RP2040/include
   ${MQTT_INCLUDE_PUBLIC_DIRS}
+  ${CMAKE_CURRENT_LIST_DIR}
+  ${CMAKE_CURRENT_SOURCE_DIR}/libs/pico-sdk/lib/lwip/contrib/ports/freertos/include
+#  libs/pico-sdk/src/rp2_common/pico_cyw43_arch/include/pico/cyw43_arch.h
   .
 )
 
 add_executable(nh-tool-wifi
-    nh-tool-wifi.c
+  nh-tool-wifi.cpp
+  tool.cpp
 )
 
-target_link_libraries(nh-tool-wifi pico_stdlib FreeRTOS-Kernel FreeRTOS-Kernel-Heap4)
+target_link_libraries(
+  nh-tool-wifi
+  pico_stdlib
+  pico_cyw43_arch_lwip_poll
+  pico_lwip_mqtt
+  FreeRTOS-Kernel
+  FreeRTOS-Kernel-Heap4
+)
 
 pico_add_extra_outputs(nh-tool-wifi)
 
