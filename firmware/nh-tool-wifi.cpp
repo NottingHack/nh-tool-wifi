@@ -8,45 +8,152 @@ extern "C" {
 #include "config.h"
 #include "tool.h"
 #include "task.h"
+#include "queue.h"
 }
 
-void init_pins() {
-  gpio_init(PIN_LED_INDUCT);
-  gpio_set_dir(PIN_LED_INDUCT, GPIO_OUT);
-  gpio_init(PIN_LED_TOOL);
-  gpio_set_dir(PIN_LED_TOOL, GPIO_OUT);
-  gpio_init(PIN_LED_STATE);
-  gpio_set_dir(PIN_LED_STATE, GPIO_OUT);
-
-  gpio_init(PIN_RELAY_SET);
-  gpio_set_dir(PIN_RELAY_SET, GPIO_OUT);
-  gpio_init(PIN_RELAY_RESET);
-  gpio_set_dir(PIN_RELAY_RESET, GPIO_OUT);
-
-  gpio_init(PIN_BUTTON_INDUCT);
-  gpio_set_dir(PIN_BUTTON_INDUCT, GPIO_IN);
-  gpio_init(PIN_BUTTON_SIGNOFF);
-  gpio_set_dir(PIN_BUTTON_SIGNOFF, GPIO_IN);
+void init_pins()
+{
+  for (int pin_config_index = 0; pin_config_index < num_pin_configs; ++pin_config_index)
+  {
+    const pin_config_t* pin_config = &pin_configs[pin_config_index];
+    gpio_init(pin_config->pin_number);
+    gpio_set_dir(pin_config->pin_number, pin_config->pin_dir);
+    if (pin_config->pin_dir == GPIO_OUT)
+    {
+      gpio_put(pin_config->pin_number, pin_config->initial_value);
+    }
+  }
 }
 
-void vBlinkTask(void *params) {
-   for (;;) {
-      gpio_put(PIN_LED_TOOL, 1);
-      vTaskDelay(250);
-      gpio_put(PIN_LED_TOOL, 0);
-      vTaskDelay(250);
-   }
+void vBlinkTask(void *params)
+{
+  for (;;)
+  {
+    gpio_put(PIN_LED_TOOL, 1);
+    vTaskDelay(250);
+    gpio_put(PIN_LED_TOOL, 0);
+    vTaskDelay(250);
+  }
 }
 
-int main() {
-    stdio_init_all();
-    init_pins();
+typedef struct
+{
+  uint32_t led_state;
+} led_event_t;
 
-    xTaskCreate(vBlinkTask, "Blink Task", 128, NULL, 1, NULL);
-    vTaskStartScheduler();
+void vLEDTask(void* params)
+{
+  QueueHandle_t queue = *reinterpret_cast<QueueHandle_t*>(params);
 
-    Tool *tool;
-    tool->init("Bandsaw");
-
-    return 0;
+  if (queue)
+  {
+    for (;;)
+    {
+      led_event_t led_event;
+      if (xQueueReceive(queue, &led_event, portMAX_DELAY) == pdPASS)
+      {
+        gpio_put(PIN_LED_INDUCT, ~led_event.led_state & (1 << PIN_LED_INDUCT));
+        gpio_put(PIN_LED_TOOL, ~led_event.led_state & (1 << PIN_LED_TOOL));
+        gpio_put(PIN_LED_STATE, ~led_event.led_state & (1 << PIN_LED_STATE));
+      }
+    }
+  }
 }
+
+typedef struct
+{
+  uint32_t button_state;
+  uint32_t change_mask;
+} button_event_t;
+
+void vButtonTask(void* params)
+{
+  QueueHandle_t queue = *reinterpret_cast<QueueHandle_t*>(params);
+
+  if (queue)
+  {
+    uint32_t button_mask = 0x00;
+    for (;;)
+    {
+      uint32_t new_mask = 0x00;
+      new_mask |= gpio_get(PIN_BUTTON_INDUCT) << PIN_BUTTON_INDUCT;
+      new_mask |= gpio_get(PIN_BUTTON_SIGNOFF) << PIN_BUTTON_SIGNOFF;
+
+      if (new_mask != button_mask)
+      {
+        button_event_t event;
+
+        event.button_state = new_mask;
+        event.change_mask = new_mask ^ button_mask;
+
+        button_mask = new_mask;
+
+        if (xQueueSend(queue, &event, 10) != pdPASS)
+        {
+          // Something went wrong
+        }
+      }
+
+      vTaskDelay(0);
+    }
+  }
+}
+
+typedef struct
+{
+  QueueHandle_t leds;
+  QueueHandle_t buttons;
+} test_params_t;
+
+void vTestTask(void* params)
+{
+  if (!params)
+  {
+    return;
+  }
+
+  test_params_t test_params = *reinterpret_cast<test_params_t*>(params);
+
+  for (;;)
+  {
+    button_event_t button_event;
+
+    if (xQueueReceive(test_params.buttons, &button_event, portMAX_DELAY) == pdPASS)
+    {
+      led_event_t led_event;
+      led_event.led_state = button_event.button_state >> 2;
+
+      if (xQueueSend(test_params.leds, &led_event, 10) != pdPASS)
+      {
+        // Something went wrong
+      }
+    }
+  }
+}
+
+int main()
+{
+  stdio_init_all();
+  init_pins();
+
+  QueueHandle_t button_queue = xQueueCreate(1, sizeof(button_event_t));
+  QueueHandle_t led_queue = xQueueCreate(1, sizeof(button_event_t));
+
+  //xTaskCreate(vBlinkTask, "Blink Task", 128, nullptr, 1, nullptr);
+  xTaskCreate(vButtonTask, "Button Task", 128, reinterpret_cast<void*>(&button_queue), 1, nullptr);
+  xTaskCreate(vLEDTask, "LED Task", 128, reinterpret_cast<void*>(&led_queue), 1, nullptr);
+
+  test_params_t test_params;
+  test_params.leds = led_queue;
+  test_params.buttons = button_queue;
+
+  xTaskCreate(vTestTask, "TEST Task", 128, reinterpret_cast<void*>(&test_params), 1, nullptr);
+
+  Tool tool;
+  tool.init("Bandsaw");
+
+  vTaskStartScheduler();
+
+  return 0;
+}
+
