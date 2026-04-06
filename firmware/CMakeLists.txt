@@ -25,6 +25,7 @@ include_directories(
 add_executable(nh-tool-wifi
   nh-tool-wifi.cpp
   tool.cpp
+  mfrc522.cpp
 )
 
 target_link_libraries(
@@ -32,9 +33,13 @@ target_link_libraries(
   pico_stdlib
   pico_cyw43_arch_lwip_poll
   pico_lwip_mqtt
+  hardware_spi
   FreeRTOS-Kernel
   FreeRTOS-Kernel-Heap4
 )
+
+pico_enable_stdio_usb(nh-tool-wifi 1)
+pico_enable_stdio_uart(nh-tool-wifi 0)
 
 pico_add_extra_outputs(nh-tool-wifi)
 

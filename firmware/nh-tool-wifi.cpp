@@ -11,6 +11,8 @@ extern "C" {
 #include "queue.h"
 }
 
+#include "mfrc522.h"
+
 void init_pins()
 {
   for (int pin_config_index = 0; pin_config_index < num_pin_configs; ++pin_config_index)
@@ -45,6 +47,10 @@ void vLEDTask(void* params)
 {
   QueueHandle_t queue = *reinterpret_cast<QueueHandle_t*>(params);
 
+  gpio_put(PIN_LED_INDUCT, 0);
+  gpio_put(PIN_LED_TOOL, 0);
+  gpio_put(PIN_LED_STATE, 0);
+
   if (queue)
   {
     for (;;)
@@ -52,9 +58,9 @@ void vLEDTask(void* params)
       led_event_t led_event;
       if (xQueueReceive(queue, &led_event, portMAX_DELAY) == pdPASS)
       {
-        gpio_put(PIN_LED_INDUCT, ~led_event.led_state & (1 << PIN_LED_INDUCT));
-        gpio_put(PIN_LED_TOOL, ~led_event.led_state & (1 << PIN_LED_TOOL));
-        gpio_put(PIN_LED_STATE, ~led_event.led_state & (1 << PIN_LED_STATE));
+        gpio_put(PIN_LED_INDUCT, led_event.led_state & (1 << PIN_LED_INDUCT));
+        gpio_put(PIN_LED_TOOL, led_event.led_state & (1 << PIN_LED_TOOL));
+        gpio_put(PIN_LED_STATE, led_event.led_state & (1 << PIN_LED_STATE));
       }
     }
   }
@@ -101,8 +107,8 @@ void vButtonTask(void* params)
 
 typedef struct
 {
-  QueueHandle_t leds;
-  QueueHandle_t buttons;
+  xQueueHandle leds;
+  xQueueHandle buttons;
 } test_params_t;
 
 void vTestTask(void* params)
@@ -118,6 +124,8 @@ void vTestTask(void* params)
   {
     button_event_t button_event;
 
+    printf("Tick\n");
+
     if (xQueueReceive(test_params.buttons, &button_event, portMAX_DELAY) == pdPASS)
     {
       led_event_t led_event;
@@ -131,10 +139,95 @@ void vTestTask(void* params)
   }
 }
 
+void vRfidTask(void* params)
+{
+  if (!params)
+  {
+    return;
+  }
+
+  test_params_t test_params = *reinterpret_cast<test_params_t*>(params);
+
+  led_event_t led_event;
+  led_event.led_state = -1;
+
+  MFRC522 reader;
+
+  vTaskDelay(3000);
+
+  reader.PCD_Init();
+  printf("RFID Reader Self Test: %s\n", reader.PCD_PerformSelfTest() ? "PASS" : "FAIL!");
+  reader.PCD_DumpVersionToSerial();	
+
+  vTaskDelay(10000);
+
+  reader.PCD_Init();
+  //reader.PCD_SetAntennaGain(0xff);
+
+  printf("Ready\n");
+
+  for (;;)
+  {
+    printf("...\n");
+
+    if (reader.PICC_IsNewCardPresent())
+    {
+      printf("\nCard Present!\n");
+
+      led_event.led_state |= 1 << PIN_LED_INDUCT;
+
+      if (xQueueSend(test_params.leds, &led_event, 10) != pdPASS)
+      {
+        // Something went wrong
+      }
+
+      if (reader.PICC_ReadCardSerial())
+      {
+        led_event.led_state |= 1 << PIN_LED_TOOL;
+
+        if (xQueueSend(test_params.leds, &led_event, 10) != pdPASS)
+        {
+          // Something went wrong
+        }
+
+        printf("Card Found:\n\tSize: %d\nUID: %x %x %x %x %x %x %x %x %x %x\nSAK: %x\n",
+          reader.uid.size,
+          reader.uid.uidByte[0],
+          reader.uid.uidByte[1],
+          reader.uid.uidByte[2],
+          reader.uid.uidByte[3],
+          reader.uid.uidByte[4],
+          reader.uid.uidByte[5],
+          reader.uid.uidByte[6],
+          reader.uid.uidByte[7],
+          reader.uid.uidByte[8],
+          reader.uid.uidByte[9],
+          reader.uid.sak
+        );
+      }
+      vTaskDelay(10000);
+    }
+
+    led_event.led_state &= ~((1 << PIN_LED_TOOL) | (1 << PIN_LED_INDUCT));
+    led_event.led_state ^= ((1 << PIN_LED_STATE));
+
+    if (xQueueSend(test_params.leds, &led_event, 10) != pdPASS)
+    {
+      // Something went wrong
+    }
+
+    printf("\nBimbling...\n");
+
+    vTaskDelay(0);
+  }
+}
+
 int main()
 {
   stdio_init_all();
   init_pins();
+
+  printf("Booted");
 
   QueueHandle_t button_queue = xQueueCreate(1, sizeof(button_event_t));
   QueueHandle_t led_queue = xQueueCreate(1, sizeof(button_event_t));
@@ -147,7 +240,8 @@ int main()
   test_params.leds = led_queue;
   test_params.buttons = button_queue;
 
-  xTaskCreate(vTestTask, "TEST Task", 128, reinterpret_cast<void*>(&test_params), 1, nullptr);
+  //xTaskCreate(vTestTask, "TEST Task", 128, reinterpret_cast<void*>(&test_params), 1, nullptr);
+  xTaskCreate(vRfidTask, "RFID Task", 1024, reinterpret_cast<void*>(&test_params), 1, nullptr);
 
   Tool tool;
   tool.init("Bandsaw");
