@@ -10,6 +10,10 @@
  * Please read this file for an overview and then MFRC522.cpp for comments on the specific functions.
  */
 
+/**
+ * Tweaked for Pico / FreeRTOS by Steve Barnett 2026
+ */
+
 // Firmware data for self-test
 // Reference values based on firmware version
 // Hint: if needed, you can remove unused self-test data to save flash memory

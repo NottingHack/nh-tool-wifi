@@ -3,6 +3,8 @@
 
 class Tool {
  public:
+  //Tool(const char* name, Queuehandle_t led_queue);
+
   void init(const char *name);
   bool auth(char *serial);
   void complete();

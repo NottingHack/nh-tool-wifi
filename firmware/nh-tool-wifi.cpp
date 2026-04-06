@@ -153,15 +153,13 @@ void vRfidTask(void* params)
 
   MFRC522 reader;
 
-  vTaskDelay(3000);
-
   reader.PCD_Init();
-  printf("RFID Reader Self Test: %s\n", reader.PCD_PerformSelfTest() ? "PASS" : "FAIL!");
+  //printf("RFID Reader Self Test: %s\n", reader.PCD_PerformSelfTest() ? "PASS" : "FAIL!");
   reader.PCD_DumpVersionToSerial();	
 
-  vTaskDelay(10000);
+  vTaskDelay(3000);
 
-  reader.PCD_Init();
+  //reader.PCD_Init();
   //reader.PCD_SetAntennaGain(0xff);
 
   printf("Ready\n");
@@ -190,7 +188,7 @@ void vRfidTask(void* params)
           // Something went wrong
         }
 
-        printf("Card Found:\n\tSize: %d\nUID: %x %x %x %x %x %x %x %x %x %x\nSAK: %x\n",
+        printf("Card Found:\n\tSize: %d\n\tUID: %x %x %x %x %x %x %x %x %x %x\n\tSAK: %x\n",
           reader.uid.size,
           reader.uid.uidByte[0],
           reader.uid.uidByte[1],
@@ -205,7 +203,7 @@ void vRfidTask(void* params)
           reader.uid.sak
         );
       }
-      vTaskDelay(10000);
+      vTaskDelay(300);
     }
 
     led_event.led_state &= ~((1 << PIN_LED_TOOL) | (1 << PIN_LED_INDUCT));
@@ -215,8 +213,6 @@ void vRfidTask(void* params)
     {
       // Something went wrong
     }
-
-    printf("\nBimbling...\n");
 
     vTaskDelay(0);
   }

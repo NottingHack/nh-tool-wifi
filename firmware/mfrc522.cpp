@@ -13,7 +13,7 @@ extern "C" {
 
 #define READ_BIT 0x80
 
-#define DEBUG 1
+#define DEBUG 0
 
 static inline void cs_select(void)
 {
@@ -34,6 +34,10 @@ static inline void cs_deselect(void)
 * NOTE: Please also check the comments in MFRC522.h - they provide useful hints and background information.
 * Released into the public domain.
 */
+
+/**
+ * Tweaked for Pico / FreeRTOS by Steve Barnett 2026
+ */
 
 /////////////////////////////////////////////////////////////////////////////////////
 // Functions for setting up the Arduino
@@ -65,7 +69,7 @@ void MFRC522::PCD_WriteRegister(
   cs_deselect();
   vTaskDelay(0);
 #if DEBUG == 1
-  printf("W[%x]:%x \n", reg, value);
+  printf("W[%x/%x]:%x \n", reg, reg >> 1, value);
 #endif
 } // End PCD_WriteRegister()
 
@@ -86,7 +90,7 @@ void MFRC522::PCD_WriteRegister(
   cs_deselect();
   vTaskDelay(0);
 #if DEBUG == 1
-  printf("W[%xx%d]:", reg, count);
+  printf("W[%x/%xx%d]:", reg, reg >> 1, count);
   for (size_t i = 0; i < count; ++i)
   {
     printf("%x ", values[i]);
@@ -111,7 +115,7 @@ uint8_t MFRC522::PCD_ReadRegister(
   cs_deselect();
   vTaskDelay(0);
 #if DEBUG == 1
-  printf("R[%x]:%x ", reg, data);
+  printf("R[%x/%x]:%x ", addr, reg >> 1, data);
 #endif
   return data;
 } // End PCD_ReadRegister()
@@ -142,7 +146,6 @@ void MFRC522::PCD_ReadRegister(
     uint8_t value = 0;
     spi_read_blocking(spi_default, addr, &value, 1);
     values[0] = (values[0] & ~mask) | (value & mask);
-    printf("\nALIGNMENT!\n");
     if (count > 1)
     {
       spi_read_blocking(spi_default, addr, values + 1, count - 1);
@@ -157,7 +160,7 @@ void MFRC522::PCD_ReadRegister(
   cs_deselect();
   vTaskDelay(0);
 #if DEBUG == 1
-  printf("R[%xx%d]:", addr, count);
+  printf("R[%x/%xx%d]:", addr, reg >> 1, count);
   for (int i = 0; i < count; ++i)
   {
     printf("%x ", values[i]);
@@ -221,12 +224,11 @@ MFRC522::StatusCode MFRC522::PCD_CalculateCRC(
       result[1] = PCD_ReadRegister(CRCResultRegH);
       return STATUS_OK;
     }
-    vTaskDelay(100);
+    vTaskDelay(1);
   }
   while (deadline-- > 0);
 
   // 89ms passed and nothing happened. Communication with the MFRC522 might be down.
-  printf("Timed out in CalculateCRC\n");
   return STATUS_TIMEOUT;
 } // End PCD_CalculateCRC()
 
@@ -277,7 +279,7 @@ void MFRC522::PCD_Init() {
 #endif
 
   // Reset baud rates
-  PCD_WriteRegister(TxModeReg, 0x80);
+  PCD_WriteRegister(TxModeReg, 0x00);
   PCD_WriteRegister(RxModeReg, 0x00);
   // Reset ModWidthReg
   PCD_WriteRegister(ModWidthReg, 0x26);
@@ -306,12 +308,11 @@ void MFRC522::PCD_Reset() {
   // The datasheet does not mention how long the SoftRest command takes to complete.
   // But the MFRC522 might have been in soft power-down mode (triggered by bit 4 of CommandReg) 
   // Section 8.8.2 in the datasheet says the oscillator start-up time is the start up time of the crystal + 37,74μs. Let us be generous: 50ms.
-  //size_t count = 0;
+  size_t count = 0;
   do {
     // Wait for the PowerDown bit in CommandReg to be cleared (max 3x50ms)
     vTaskDelay(50);
-    printf("Waiting for reset...\n");
-  } while ((PCD_ReadRegister(CommandReg) & (1 << 4)));// && (++count) < 3);
+  } while ((PCD_ReadRegister(CommandReg) & (1 << 4)) && (++count) < 3);
 } // End PCD_Reset()
 
 /**
@@ -321,7 +322,6 @@ void MFRC522::PCD_Reset() {
 void MFRC522::PCD_AntennaOn() {
   uint8_t value = PCD_ReadRegister(TxControlReg);
   if ((value & 0x03) != 0x03) {
-    printf("...");
     PCD_WriteRegister(TxControlReg, value | 0x03);
   }
 } // End PCD_AntennaOn()
@@ -550,13 +550,12 @@ MFRC522::StatusCode MFRC522::PCD_CommunicateWithPICC(
     if (n & 0x01) {            // Timer interrupt - nothing received in 25ms
       return STATUS_TIMEOUT;
     }
-    vTaskDelay(100);
+    vTaskDelay(1);
   }
   while (deadline-- > 0);
 
   // 36ms and nothing happened. Communication with the MFRC522 might be down.
   if (!completed) {
-    printf("Timed out in CommunicateWithPICC\n");
     return STATUS_TIMEOUT;
   }
   
@@ -726,11 +725,8 @@ MFRC522::StatusCode MFRC522::PICC_Select(
   //            2      CT    uid3  uid4  uid5
   //            3      uid6  uid7  uid8  uid9
   
-  printf("\nPICC_Select\n");
-
   // Sanity checks
   if (validBits > 80) {
-    printf("\nSTATUS_INVALID\n");
     return STATUS_INVALID;
   }
   
@@ -761,7 +757,6 @@ MFRC522::StatusCode MFRC522::PICC_Select(
         break;
       
       default:
-        printf("\nINTERNAL_ERROR\n");
         return STATUS_INTERNAL_ERROR;
         break;
     }
@@ -803,7 +798,6 @@ MFRC522::StatusCode MFRC522::PICC_Select(
         // Calculate CRC_A
         result = PCD_CalculateCRC(buffer, 7, &buffer[7]);
         if (result != STATUS_OK) {
-          printf("\nCRC_ERROR\n");
           return result;
         }
         txLastBits    = 0; // 0 => All 8 bits are valid.
@@ -828,14 +822,11 @@ MFRC522::StatusCode MFRC522::PICC_Select(
       rxAlign = txLastBits;                      // Having a separate variable is overkill. But it makes the next line easier to read.
       PCD_WriteRegister(BitFramingReg, (rxAlign << 4) + txLastBits);  // RxAlign = BitFramingReg[6..4]. TxLastBits = BitFramingReg[2..0]
       
-      printf("\nTRANSCIEVE\n");
-
       // Transmit the buffer and receive the response.
       result = PCD_TransceiveData(buffer, bufferUsed, responseBuffer, &responseLength, &txLastBits, rxAlign);
       if (result == STATUS_COLLISION) { // More than one PICC in the field => collision.
         uint8_t valueOfCollReg = PCD_ReadRegister(CollReg); // CollReg[7..0] bits are: ValuesAfterColl reserved CollPosNotValid CollPos[4:0]
         if (valueOfCollReg & 0x20) { // CollPosNotValid
-          printf("\nCOLLISION_POSITION_NOT_VALID\n");
           return STATUS_COLLISION; // Without a valid collision position we cannot continue
         }
         uint8_t collisionPos = valueOfCollReg & 0x1F; // Values 0-31, 0 means bit 32.
@@ -843,7 +834,6 @@ MFRC522::StatusCode MFRC522::PICC_Select(
           collisionPos = 32;
         }
         if (collisionPos <= currentLevelKnownBits) { // No progress - should not happen 
-          printf("\nCOLLISION_POSITION_NO_PROGRESS\n");
           return STATUS_INTERNAL_ERROR;
         }
         // Choose the PICC with the bit set.
@@ -854,7 +844,6 @@ MFRC522::StatusCode MFRC522::PICC_Select(
         buffer[index]  |= (1 << checkBit);
       }
       else if (result != STATUS_OK) {
-        printf("\nUNKNOWN_ERROR\n");
         return result;
       }
       else { // STATUS_OK
@@ -881,17 +870,14 @@ MFRC522::StatusCode MFRC522::PICC_Select(
     
     // Check response SAK (Select Acknowledge)
     if (responseLength != 3 || txLastBits != 0) { // SAK must be exactly 24 bits (1 byte + CRC_A).
-      printf("\nSAK ERROR\n");
       return STATUS_ERROR;
     }
     // Verify CRC_A - do our own calculation and store the control in buffer[2..3] - those bytes are not needed anymore.
     result = PCD_CalculateCRC(responseBuffer, 1, &buffer[2]);
     if (result != STATUS_OK) {
-      printf("\nCRC ERROR\n");
       return result;
     }
     if ((buffer[2] != responseBuffer[1]) || (buffer[3] != responseBuffer[2])) {
-      printf("\nCRC WRONG\n");
       return STATUS_CRC_WRONG;
     }
     if (responseBuffer[0] & 0x04) { // Cascade bit set - UID not complete yes
@@ -906,7 +892,6 @@ MFRC522::StatusCode MFRC522::PICC_Select(
   // Set correct uid->size
   uid->size = 3 * cascadeLevel + 1;
 
-  printf("\nSELECT STATUS_OK\n");
   return STATUS_OK;
 } // End PICC_Select()
 

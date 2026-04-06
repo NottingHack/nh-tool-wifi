@@ -3,3 +3,4 @@
 openocd -f interface/cmsis-dap.cfg -f target/rp2040.cfg -c "adapter speed 5000" &
 
 echo "Launch gdb with gdb-multiarch nh-tool-wifi.elf --command ../init.gdb"
+gdb-multiarch nh-tool-wifi.elf --command ../init.gdb
