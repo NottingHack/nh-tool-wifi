@@ -12,6 +12,7 @@ extern "C" {
 }
 
 #include "mfrc522.h"
+#include "mqtt.h"
 
 void init_pins()
 {
@@ -159,15 +160,10 @@ void vRfidTask(void* params)
 
   vTaskDelay(3000);
 
-  //reader.PCD_Init();
-  //reader.PCD_SetAntennaGain(0xff);
-
   printf("Ready\n");
 
   for (;;)
   {
-    printf("...\n");
-
     if (reader.PICC_IsNewCardPresent())
     {
       printf("\nCard Present!\n");
@@ -223,8 +219,6 @@ int main()
   stdio_init_all();
   init_pins();
 
-  printf("Booted");
-
   QueueHandle_t button_queue = xQueueCreate(1, sizeof(button_event_t));
   QueueHandle_t led_queue = xQueueCreate(1, sizeof(button_event_t));
 
@@ -238,6 +232,21 @@ int main()
 
   //xTaskCreate(vTestTask, "TEST Task", 128, reinterpret_cast<void*>(&test_params), 1, nullptr);
   xTaskCreate(vRfidTask, "RFID Task", 1024, reinterpret_cast<void*>(&test_params), 1, nullptr);
+
+  QueueHandle_t sub_queue = xQueueCreate(4, sizeof(mqtt_message_t*));
+  QueueHandle_t pub_queue = xQueueCreate(4, sizeof(mqtt_message_t*));
+
+  mqtt_task_params_t mqtt_params = {
+    .device_name = "newtool",
+    .ssid = "CHANGE_THIS",
+    .password = "CHANGE_THIS_TOO",
+    .port = 1883,
+    .pub_queue = pub_queue,
+    .sub_queue = sub_queue,
+  };
+  ipaddr_aton("192.168.0.59", &mqtt_params.server);
+
+  xTaskCreate(vMqttTask, "MQTT Task", 1024, &mqtt_params, 2, nullptr);
 
   Tool tool;
   tool.init("Bandsaw");

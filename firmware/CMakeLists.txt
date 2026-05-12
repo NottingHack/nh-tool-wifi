@@ -10,7 +10,6 @@ pico_sdk_init()
 
 set(FREERTOS_KERNEL_PATH ${CMAKE_CURRENT_SOURCE_DIR}/libs/FreeRTOS-Kernel)
 include(${FREERTOS_KERNEL_PATH}/portable/ThirdParty/GCC/RP2040/FreeRTOS_Kernel_import.cmake)
-include(libs/coreMQTT/mqttFilePaths.cmake)
 
 include_directories(
   ${FREERTOS_KERNEL_PATH}/include
@@ -26,6 +25,7 @@ add_executable(nh-tool-wifi
   nh-tool-wifi.cpp
   tool.cpp
   mfrc522.cpp
+  mqtt.cpp
 )
 
 target_link_libraries(
