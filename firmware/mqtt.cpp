@@ -24,6 +24,17 @@ static void wifi_connect(const char* ssid, const char* password, ip_addr_t ip_ad
 
   cyw43_arch_enable_sta_mode();
 
+  // Are we using DHCP or do we have a static IP?
+  // Use 0.0.0.0 to indicate DHCP
+  if (!ip_addr_isany(&ip_addr))
+  {
+		dhcp_stop(cyw43_state.netif);
+
+		netif_set_ipaddr( cyw43_state.netif, &ip_addr);
+    //netif_set_netmask(...)
+    //netif_set_gw(...)
+  }
+
   for (uint8_t attempt = 1; 1; ++attempt)
   {
 		if (cyw43_arch_wifi_connect_timeout_ms(ssid, password, CYW43_AUTH_WPA2_AES_PSK, 6000) == 0)
@@ -37,17 +48,6 @@ static void wifi_connect(const char* ssid, const char* password, ip_addr_t ip_ad
   uint8_t mac[6];
   cyw43_wifi_get_mac(&cyw43_state, CYW43_ITF_STA, mac);
   printf("MAC Address: %x:%x:%x:%x:%x:%x\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-
-  // Are we using DHCP or do we have a static IP?
-  // Use 0.0.0.0 to indicate DHCP
-  if (!ip_addr_isany(&ip_addr))
-  {
-		dhcp_stop(cyw43_state.netif);
-
-		netif_set_ipaddr( cyw43_state.netif, &ip_addr);
-    //netif_set_netmask(...)
-    //netif_set_gw(...)
-  }
 
   uint8_t ip[4];
   memcpy(ip, netif_ip4_addr(&cyw43_state.netif[0]), 4);
