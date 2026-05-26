@@ -205,11 +205,12 @@ int main()
     .device_name = settings->device_name,
     .ssid = settings->ssid,
     .password = settings->password,
+    .ip = settings->ip_addr,
+    .server = settings->server_addr,
     .port = 1883,
     .pub_queue = pub_queue,
     .sub_queue = sub_queue,
   };
-  mqtt_params.server = settings->server_addr;
 
   xTaskCreate(vMqttTask, "MQTT Task", 1024, &mqtt_params, 2, nullptr);
 

@@ -31,6 +31,8 @@ typedef struct
   const char* ssid;
   const char* password;
 
+  ip_addr_t ip;
+
   ip_addr_t server;
   uint16_t port;
 

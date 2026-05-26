@@ -13,7 +13,7 @@ extern "C" {
 
 #include "mqtt.h"
 
-static void wifi_connect(const char* ssid, const char* password)
+static void wifi_connect(const char* ssid, const char* password, ip_addr_t ip_addr)
 {
   printf("Connecting...\n");
 
@@ -37,6 +37,17 @@ static void wifi_connect(const char* ssid, const char* password)
   uint8_t mac[6];
   cyw43_wifi_get_mac(&cyw43_state, CYW43_ITF_STA, mac);
   printf("MAC Address: %x:%x:%x:%x:%x:%x\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+
+  // Are we using DHCP or do we have a static IP?
+  // Use 0.0.0.0 to indicate DHCP
+  if (!ip_addr_isany(&ip_addr))
+  {
+		dhcp_stop(cyw43_state.netif);
+
+		netif_set_ipaddr( cyw43_state.netif, &ip_addr);
+    //netif_set_netmask(...)
+    //netif_set_gw(...)
+  }
 
   uint8_t ip[4];
   memcpy(ip, netif_ip4_addr(&cyw43_state.netif[0]), 4);
@@ -66,7 +77,7 @@ static void mqtt_connect(mqtt_client_t* client, mqtt_task_params_t* params)
 
   memset(&ci, 0, sizeof(ci));
 
-  ci.client_id = "nh-tools-1234";
+  ci.client_id = params->device_name;
   ci.keep_alive = 30;
 
   err = mqtt_client_connect(client, &params->server, params->port, mqtt_connection_cb, params, &ci);
@@ -96,7 +107,7 @@ static void mqtt_incoming_publish_cb(void *arg, const char *topic, u32_t tot_len
   printf("Incoming publish at topic %s with total length %u\n", topic, (unsigned int)tot_len);
 
   /* Decode topic string into a user defined reference */
-  if(strcmp(topic, "print_payload") == 0) {
+  if(strcmp(topic, "subtopic") == 0) {
     inpub_id = 0;
   } else if(topic[0] == 'A') {
     /* All topics starting with 'A' might be handled at the same way */
@@ -118,9 +129,12 @@ static void mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t f
     /* Call function or do action depending on reference, in this case inpub_id */
     if(inpub_id == 0) {
       /* Don't trust the publisher, check zero termination */
-      if(data[len-1] == 0) {
-        printf("mqtt_incoming_data_cb: %s\n", (const char *)data);
+      printf("mqtt_incoming_data_cb: ");
+      for (int i = 0; i < len; ++i)
+      {
+        printf("%c", data[i]);
       }
+      printf("\n");
     } else if(inpub_id == 1) {
       /* Call an 'A' function... */
     } else {
@@ -201,7 +215,7 @@ void vMqttTask(void* in_params)
     printf("Failed to init wifi!");
   }
 
-  wifi_connect(params.ssid, params.password);
+  wifi_connect(params.ssid, params.password, params.ip);
 
   mqtt_client_t* mqtt_client = mqtt_client_new();
   mqtt_connect(mqtt_client, &params);
@@ -214,7 +228,7 @@ void vMqttTask(void* in_params)
     if (!wifi_is_connected())
     {
       printf("Link dropped, reconnecting...\n");
-      wifi_connect(params.ssid, params.password);
+      wifi_connect(params.ssid, params.password, params.ip);
     }
 
     if (!mqtt_client_is_connected(mqtt_client))
@@ -223,6 +237,6 @@ void vMqttTask(void* in_params)
       vTaskDelay(1000);
     }
 
-    vTaskDelay(0);
+    vTaskDelay(50);
   }
 }
