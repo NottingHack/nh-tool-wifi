@@ -26,6 +26,7 @@ add_executable(nh-tool-wifi
   tool.cpp
   mfrc522.cpp
   mqtt.cpp
+  settings.cpp
 )
 
 target_link_libraries(
@@ -34,6 +35,7 @@ target_link_libraries(
   pico_cyw43_arch_lwip_poll
   pico_lwip_mqtt
   hardware_spi
+  hardware_flash
   FreeRTOS-Kernel
   FreeRTOS-Kernel-Heap4
 )
@@ -42,4 +44,6 @@ pico_enable_stdio_usb(nh-tool-wifi 1)
 pico_enable_stdio_uart(nh-tool-wifi 0)
 
 pico_add_extra_outputs(nh-tool-wifi)
+
+pico_set_linker_script(nh-tool-wifi ${CMAKE_SOURCE_DIR}/memmap_reserve.ld)
 

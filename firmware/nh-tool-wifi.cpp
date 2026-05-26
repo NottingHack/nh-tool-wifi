@@ -6,13 +6,15 @@ extern "C" {
 #include "lwip/apps/mqtt.h"
 #include "pico/stdlib.h"
 #include "config.h"
-#include "tool.h"
 #include "task.h"
 #include "queue.h"
+
+#include "tool.h"
 }
 
 #include "mfrc522.h"
 #include "mqtt.h"
+#include "settings.h"
 
 void init_pins()
 {
@@ -25,17 +27,6 @@ void init_pins()
     {
       gpio_put(pin_config->pin_number, pin_config->initial_value);
     }
-  }
-}
-
-void vBlinkTask(void *params)
-{
-  for (;;)
-  {
-    gpio_put(PIN_LED_TOOL, 1);
-    vTaskDelay(250);
-    gpio_put(PIN_LED_TOOL, 0);
-    vTaskDelay(250);
   }
 }
 
@@ -110,35 +101,7 @@ typedef struct
 {
   xQueueHandle leds;
   xQueueHandle buttons;
-} test_params_t;
-
-void vTestTask(void* params)
-{
-  if (!params)
-  {
-    return;
-  }
-
-  test_params_t test_params = *reinterpret_cast<test_params_t*>(params);
-
-  for (;;)
-  {
-    button_event_t button_event;
-
-    printf("Tick\n");
-
-    if (xQueueReceive(test_params.buttons, &button_event, portMAX_DELAY) == pdPASS)
-    {
-      led_event_t led_event;
-      led_event.led_state = button_event.button_state >> 2;
-
-      if (xQueueSend(test_params.leds, &led_event, 10) != pdPASS)
-      {
-        // Something went wrong
-      }
-    }
-  }
-}
+} rfid_params_t;
 
 void vRfidTask(void* params)
 {
@@ -147,7 +110,7 @@ void vRfidTask(void* params)
     return;
   }
 
-  test_params_t test_params = *reinterpret_cast<test_params_t*>(params);
+  rfid_params_t rfid_params = *reinterpret_cast<rfid_params_t*>(params);
 
   led_event_t led_event;
   led_event.led_state = -1;
@@ -170,7 +133,7 @@ void vRfidTask(void* params)
 
       led_event.led_state |= 1 << PIN_LED_INDUCT;
 
-      if (xQueueSend(test_params.leds, &led_event, 10) != pdPASS)
+      if (xQueueSend(rfid_params.leds, &led_event, 10) != pdPASS)
       {
         // Something went wrong
       }
@@ -179,7 +142,7 @@ void vRfidTask(void* params)
       {
         led_event.led_state |= 1 << PIN_LED_TOOL;
 
-        if (xQueueSend(test_params.leds, &led_event, 10) != pdPASS)
+        if (xQueueSend(rfid_params.leds, &led_event, 10) != pdPASS)
         {
           // Something went wrong
         }
@@ -205,7 +168,7 @@ void vRfidTask(void* params)
     led_event.led_state &= ~((1 << PIN_LED_TOOL) | (1 << PIN_LED_INDUCT));
     led_event.led_state ^= ((1 << PIN_LED_STATE));
 
-    if (xQueueSend(test_params.leds, &led_event, 10) != pdPASS)
+    if (xQueueSend(rfid_params.leds, &led_event, 10) != pdPASS)
     {
       // Something went wrong
     }
@@ -217,34 +180,36 @@ void vRfidTask(void* params)
 int main()
 {
   stdio_init_all();
+  stdio_usb_init();
   init_pins();
+
+  init_settings();
 
   QueueHandle_t button_queue = xQueueCreate(1, sizeof(button_event_t));
   QueueHandle_t led_queue = xQueueCreate(1, sizeof(button_event_t));
 
-  //xTaskCreate(vBlinkTask, "Blink Task", 128, nullptr, 1, nullptr);
   xTaskCreate(vButtonTask, "Button Task", 128, reinterpret_cast<void*>(&button_queue), 1, nullptr);
   xTaskCreate(vLEDTask, "LED Task", 128, reinterpret_cast<void*>(&led_queue), 1, nullptr);
 
-  test_params_t test_params;
-  test_params.leds = led_queue;
-  test_params.buttons = button_queue;
+  rfid_params_t rfid_params;
+  rfid_params.leds = led_queue;
+  rfid_params.buttons = button_queue;
 
-  //xTaskCreate(vTestTask, "TEST Task", 128, reinterpret_cast<void*>(&test_params), 1, nullptr);
-  xTaskCreate(vRfidTask, "RFID Task", 1024, reinterpret_cast<void*>(&test_params), 1, nullptr);
+  xTaskCreate(vRfidTask, "RFID Task", 1024, reinterpret_cast<void*>(&rfid_params), 1, nullptr);
 
   QueueHandle_t sub_queue = xQueueCreate(4, sizeof(mqtt_message_t*));
   QueueHandle_t pub_queue = xQueueCreate(4, sizeof(mqtt_message_t*));
 
+  const settings_t* settings = get_settings();
   mqtt_task_params_t mqtt_params = {
-    .device_name = "newtool",
-    .ssid = "CHANGE_THIS",
-    .password = "CHANGE_THIS_TOO",
+    .device_name = settings->device_name,
+    .ssid = settings->ssid,
+    .password = settings->password,
     .port = 1883,
     .pub_queue = pub_queue,
     .sub_queue = sub_queue,
   };
-  ipaddr_aton("192.168.0.59", &mqtt_params.server);
+  mqtt_params.server = settings->server_addr;
 
   xTaskCreate(vMqttTask, "MQTT Task", 1024, &mqtt_params, 2, nullptr);
 

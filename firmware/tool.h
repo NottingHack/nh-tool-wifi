@@ -1,6 +1,7 @@
 #pragma once
 
-class Tool {
+class Tool
+{
 public:
   enum ToolState
   {
