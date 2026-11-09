@@ -1,5 +1,22 @@
 #pragma once
 
+extern "C" {
+  #include "FreeRTOS.h"
+  #include "queue.h"
+}
+
+typedef struct
+{
+  const char *name;
+  const char* base_topic;
+  QueueHandle_t sub_queue;
+  QueueHandle_t pub_queue;
+  QueueHandle_t incoming_queue;
+  QueueHandle_t uid_queue;
+  QueueHandle_t led_queue;
+  QueueHandle_t button_queue;
+} tool_params_t;
+
 class Tool
 {
 public:
@@ -14,9 +31,29 @@ public:
     NUM,
   };
 
+  // MQTT Topic strings
+ 
+  // Publish
+  const char* topic_AUTH     = nullptr;
+  const char* topic_COMPLETE = nullptr;
+  const char* topic_INDUCT   = nullptr;
+  const char* topic_RESET    = nullptr;
+  
+  // Subscribe
+  const char* topic_GRANT    = nullptr;
+  const char* topic_DENY     = nullptr;
+  const char* topic_ISUC     = nullptr;
+  const char* topic_IFAL     = nullptr;
+
   //Tool(const char* name, Queuehandle_t led_queue);
 
-  void init(const char *name);
+  void init(tool_params_t params);
+
+  // FreeRTOS task loop
+  void runTask();
+
+private:
+
   //bool auth(char *serial);
   //void complete();
   //bool induct(char *inductor_serial, char *inductee_serial);
@@ -34,5 +71,22 @@ public:
   void handleDisconnect();
   void handleMqttMessage(char *topic, char *payload, int length);
 
+  // Parameters
+  const char *name;
+
+  QueueHandle_t sub_queue;
+  QueueHandle_t pub_queue;
+  QueueHandle_t incoming_queue;
+
+  QueueHandle_t uid_queue;
+
+  QueueHandle_t led_queue;
+  QueueHandle_t button_queue;
+
+  // State
   ToolState state;
 };
+
+// Dispatcher to invoke the tool's runTask method
+void vToolDispatcher(void* in_params);
+

@@ -11,11 +11,13 @@ extern "C" {
 #include "queue.h"
 }
 
+#include <vector>
+
 #include "mqtt.h"
 
 static void wifi_connect(const char* ssid, const char* password, ip_addr_t ip_addr)
 {
-  printf("Connecting...\n");
+  printf("MQTT: Connecting...\n");
 
   // LED off while attempting to connect
   cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
@@ -41,19 +43,19 @@ static void wifi_connect(const char* ssid, const char* password, ip_addr_t ip_ad
     {
       break;
     }
-		printf("Failed to join AP. Attempt %d\n", attempt);
+		printf("MQTT: Failed to join AP. Attempt %d\n", attempt);
 		vTaskDelay(2000);
 	}
 
   uint8_t mac[6];
   cyw43_wifi_get_mac(&cyw43_state, CYW43_ITF_STA, mac);
-  printf("MAC Address: %x:%x:%x:%x:%x:%x\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+  printf("MQTT: MAC Address: %x:%x:%x:%x:%x:%x\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
   uint8_t ip[4];
   memcpy(ip, netif_ip4_addr(&cyw43_state.netif[0]), 4);
-  printf("IP Address: %d.%d.%d.%d\n", ip[0], ip[1], ip[2], ip[3]);
+  printf("MQTT: IP Address: %d.%d.%d.%d\n", ip[0], ip[1], ip[2], ip[3]);
 
-  printf("Connected.\n");
+  printf("MQTT: Connected.\n");
 
   // LED on once connected
   cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
@@ -70,7 +72,15 @@ static void mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t f
 static void mqtt_connection_cb(mqtt_client_t* client, void* arg, mqtt_connection_status_t status);
 static void mqtt_pub_request_cb(void *arg, err_t result);
 
-static void mqtt_connect(mqtt_client_t* client, mqtt_task_params_t* params)
+typedef struct
+{
+  std::vector<const char*> topic_pool;
+  mqtt_message_t buffer;
+  int offset;
+  QueueHandle_t incoming_queue;
+} mqtt_context_t;
+
+static void mqtt_connect(mqtt_client_t* client, mqtt_task_params_t* params, mqtt_context_t* context)
 {
   struct mqtt_connect_client_info_t ci;
   err_t err;
@@ -80,11 +90,11 @@ static void mqtt_connect(mqtt_client_t* client, mqtt_task_params_t* params)
   ci.client_id = params->device_name;
   ci.keep_alive = 30;
 
-  err = mqtt_client_connect(client, &params->server, params->port, mqtt_connection_cb, params, &ci);
+  err = mqtt_client_connect(client, &params->server, params->port, mqtt_connection_cb, context, &ci);
 
   if (err != ERR_OK)
   {
-    printf("mqtt_connect returned %d\n", err);
+    printf("MQTT: mqtt_connect returned %d\n", err);
   }
 }
 
@@ -93,55 +103,74 @@ static void mqtt_sub_request_cb(void *arg, err_t result)
   /* Just print the result code here for simplicity, 
      normal behaviour would be to take some action if subscribe fails like 
      notifying user, retry subscribe or disconnect from server */
-  printf("Subscribe result: %d\n", result);
+  printf("MQTT: Subscribe result: %d\n", result);
 }
 
-/* The idea is to demultiplex topic and create some reference to be used in data callbacks
-   Example here uses a global variable, better would be to use a member in arg
-   If RAM and CPU budget allows it, the easiest implementation might be to just take a copy of
-   the topic string and use it in mqtt_incoming_data_cb
-*/
-static int inpub_id;
 static void mqtt_incoming_publish_cb(void *arg, const char *topic, u32_t tot_len)
 {
-  printf("Incoming publish at topic %s with total length %u\n", topic, (unsigned int)tot_len);
+  mqtt_context_t* context = reinterpret_cast<mqtt_context_t*>(arg);
 
-  /* Decode topic string into a user defined reference */
-  if(strcmp(topic, "subtopic") == 0) {
-    inpub_id = 0;
-  } else if(topic[0] == 'A') {
-    /* All topics starting with 'A' might be handled at the same way */
-    inpub_id = 1;
-  } else {
-    /* For all other topics */
-    inpub_id = 2;
+  printf("MQTT: Incoming publish at topic %s with total length %u\n", topic, (unsigned int)tot_len);
+
+  assert(context->buffer.topic == nullptr);  // Make sure we're not trampling another message for some reason
+  
+  // Replace the topic with one of the strings from our pool
+  for (const char* pool_topic : context->topic_pool)
+  {
+    //printf("MQTT: Try Pool Topic: %s Context: %x\n", pool_topic, context);
+    if (strcmp(pool_topic, topic) == 0)
+    {
+      // Found it, set the pointer in our context
+      printf("MQTT: Found pool topic: %s for topic %s.\n", pool_topic, topic);
+      context->buffer.topic = pool_topic;
+      break;
+    }
   }
+  
+  context->offset = 0;
 }
 
 static void mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t flags)
 {
-  printf("Incoming publish payload with length %d, flags %u\n", len, (unsigned int)flags);
+  mqtt_context_t* context = reinterpret_cast<mqtt_context_t*>(arg);
+
+  printf("MQTT: Incoming publish payload with length %d, flags %u, %s\n", len, (unsigned int)flags, context->buffer.topic ? "ACCEPTED" : "REJECTED");
+
+  // This message was rejected
+  if (context->buffer.topic == nullptr)
+  {
+    return;
+  }
 
   if(flags & MQTT_DATA_FLAG_LAST) {
     /* Last fragment of payload received (or whole part if payload fits receive buffer
        See MQTT_VAR_HEADER_BUFFER_LEN)  */
 
-    /* Call function or do action depending on reference, in this case inpub_id */
-    if(inpub_id == 0) {
-      /* Don't trust the publisher, check zero termination */
-      printf("mqtt_incoming_data_cb: ");
-      for (int i = 0; i < len; ++i)
-      {
-        printf("%c", data[i]);
-      }
-      printf("\n");
-    } else if(inpub_id == 1) {
-      /* Call an 'A' function... */
-    } else {
-      printf("mqtt_incoming_data_cb: Ignoring payload...\n");
+    for (int i = 0; i < len && context->offset < MESSAGE_LEN; ++i)
+    {
+      context->buffer.message[context->offset++] = data[i];
     }
-  } else {
+
+    // Force null termination - overlong messages will be truncated
+    if (context->offset >= MESSAGE_LEN)
+    {
+      context->offset = MESSAGE_LEN - 1;
+    }
+    context->buffer.message[context->offset] = '\0';
+
+    // Enqueue the message
+    assert(xQueueSend(context->incoming_queue, &context->buffer, portMAX_DELAY) == pdPASS);
+
+    // Clear the buffer for the next message
+    memset(&context->buffer, 0, sizeof(context->buffer));
+  }
+  else
+  {
     /* Handle fragmented payload, store in buffer, write to file or whatever */
+    for (int i = 0; i < len && context->offset < MESSAGE_LEN; ++i)
+    {
+      context->buffer.message[context->offset++] = data[i];
+    }
   }
 }
 
@@ -150,23 +179,21 @@ static void mqtt_connection_cb(mqtt_client_t* client, void* arg, mqtt_connection
   err_t err;
   if (status == MQTT_CONNECT_ACCEPTED)
   {
-    printf("mqtt_connection_cb: Successfully connected\n");
+    printf("MQTT: Client connected\n");
     
     /* Setup callback for incoming publish requests */
     mqtt_set_inpub_callback(client, mqtt_incoming_publish_cb, mqtt_incoming_data_cb, arg);
     
     /* Subscribe to a topic named "subtopic" with QoS level 1, call mqtt_sub_request_cb with result */ 
-    err = mqtt_subscribe(client, "subtopic", 1, mqtt_sub_request_cb, arg);
+    //err = mqtt_subscribe(client, "subtopic", 1, mqtt_sub_request_cb, arg);
 
-    if(err != ERR_OK) {
-      printf("mqtt_subscribe return: %d\n", err);
-    }
+    //if(err != ERR_OK) {
+    //  printf("MQTT: mqtt_subscribe returned: %d\n", err);
+    //}
   }
   else
   {
-    printf("mqtt_connection_cb: Disconnected, reason: %d\n", status);
-    
-    //mqtt_connect(client, reinterpret_cast<mqtt_task_params_t*>(arg));
+    printf("MQTT: disconnected, reason: %d\n", status);
   }
 }
 
@@ -178,7 +205,7 @@ void example_publish(mqtt_client_t *client, void *arg)
   u8_t retain = 0; /* No don't retain such crappy payload... */
   err = mqtt_publish(client, "pub_topic", pub_payload, strlen(pub_payload), qos, retain, mqtt_pub_request_cb, arg);
   if(err != ERR_OK) {
-    printf("Publish err: %d\n", err);
+    printf("MQTT: Publish err: %d\n", err);
   }
 }
 
@@ -186,25 +213,9 @@ void example_publish(mqtt_client_t *client, void *arg)
 static void mqtt_pub_request_cb(void *arg, err_t result)
 {
   if(result != ERR_OK) {
-    printf("Publish result: %d\n", result);
+    printf("MQTT: Publish result: %d\n", result);
   }
 }
-
-//5. Disconnecting
-//
-//Simply call mqtt_disconnect(client)
-
-// Publish
-char* topic_AUTH     = nullptr;
-char* topic_COMPLETE = nullptr;
-char* topic_INDUCT   = nullptr;
-char* topic_RESET    = nullptr;
-
-// Subscribe
-char* topic_GRANT    = nullptr;
-char* topic_DENY     = nullptr;
-char* topic_ISUC     = nullptr;
-char* topic_IFAL     = nullptr;
 
 void vMqttTask(void* in_params)
 {
@@ -212,13 +223,24 @@ void vMqttTask(void* in_params)
 
   if (cyw43_arch_init() != 0)
   {
-    printf("Failed to init wifi!");
+    printf("MQTT: Failed to init wifi!");
   }
 
   wifi_connect(params.ssid, params.password, params.ip);
 
+  mqtt_context_t context =
+  {
+    .buffer = {
+      .topic = nullptr,
+    },
+    .offset = 0,
+    .incoming_queue = params.incoming_queue,
+  };
+  memset(context.buffer.message, 0, sizeof(context.buffer.message));
+  context.topic_pool.reserve(4);
+
   mqtt_client_t* mqtt_client = mqtt_client_new();
-  mqtt_connect(mqtt_client, &params);
+  mqtt_connect(mqtt_client, &params, &context);
 
   for (;;)
   {
@@ -227,16 +249,34 @@ void vMqttTask(void* in_params)
 
     if (!wifi_is_connected())
     {
-      printf("Link dropped, reconnecting...\n");
+      printf("MQTT: Link dropped, reconnecting...\n");
       wifi_connect(params.ssid, params.password, params.ip);
     }
 
-    if (!mqtt_client_is_connected(mqtt_client))
+    if (mqtt_client_is_connected(mqtt_client))
     {
-      printf("MQTT client disconnected. PANIK?\n");
-      vTaskDelay(1000);
+      // Check for requests to subscribe
+      const char* topic = nullptr;
+      if (xQueueReceive(params.sub_queue, &topic, 50) == pdPASS)
+      {
+        // Add the topic to the topic pool so we can reuse the string pointer
+        context.topic_pool.push_back(topic);
+
+        // Subscribe to the topic
+        printf("MQTT: Subscribe. Topic: %s\n", topic);
+        err_t err = mqtt_subscribe(mqtt_client, topic, 1, mqtt_sub_request_cb, &context);
+        if (err != ERR_OK)
+        {
+          printf("MQTT: mqtt_subscribe returned: %d\n", err);
+        }
+      }
+    }
+    else
+    {
+      // Not connected, wait a bit
+      printf("MQTT: client is not connected.\n");
+      vTaskDelay(500);
     }
 
-    vTaskDelay(50);
   }
 }

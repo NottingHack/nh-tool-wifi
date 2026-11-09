@@ -61,7 +61,8 @@ mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
 mqttc.on_connect = on_connect
 mqttc.on_message = on_message
 
-mqttc.connect("192.168.0.59", 1883, 60)
+#mqttc.connect("jarvis", 1883, 60)
+mqttc.connect("192.168.0.87", 1883, 60)
 
 # Blocking call that processes network traffic, dispatches callbacks and
 # handles reconnecting.

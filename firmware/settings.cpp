@@ -224,6 +224,14 @@ void vMenuTask(void* params)
   size_t index = 0;
   buffer[index] = '\0';
 
+  // Sleep while the USB UART is disconnected, on connection show the menu
+  while (!stdio_usb_connected())
+  {
+    vTaskDelay(100);
+  }
+
+  show_help();
+
   for (;;)
   {
     // About to overflow, throw away all input and start again

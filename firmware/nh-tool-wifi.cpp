@@ -8,9 +8,9 @@ extern "C" {
 #include "config.h"
 #include "task.h"
 #include "queue.h"
+}
 
 #include "tool.h"
-}
 
 #include "mfrc522.h"
 #include "mqtt.h"
@@ -26,7 +26,7 @@ void init_pins()
     if (pin_config->pin_dir == GPIO_OUT)
     {
       gpio_put(pin_config->pin_number, pin_config->initial_value);
-    }
+}
   }
 }
 
@@ -99,8 +99,7 @@ void vButtonTask(void* params)
 
 typedef struct
 {
-  xQueueHandle leds;
-  xQueueHandle buttons;
+  xQueueHandle uid_queue;
 } rfid_params_t;
 
 void vRfidTask(void* params)
@@ -112,41 +111,18 @@ void vRfidTask(void* params)
 
   rfid_params_t rfid_params = *reinterpret_cast<rfid_params_t*>(params);
 
-  led_event_t led_event;
-  led_event.led_state = -1;
-
   MFRC522 reader;
 
   reader.PCD_Init();
   //printf("RFID Reader Self Test: %s\n", reader.PCD_PerformSelfTest() ? "PASS" : "FAIL!");
   reader.PCD_DumpVersionToSerial();	
 
-  vTaskDelay(3000);
-
-  printf("Ready\n");
-
   for (;;)
   {
     if (reader.PICC_IsNewCardPresent())
     {
-      printf("\nCard Present!\n");
-
-      led_event.led_state |= 1 << PIN_LED_INDUCT;
-
-      if (xQueueSend(rfid_params.leds, &led_event, 10) != pdPASS)
-      {
-        // Something went wrong
-      }
-
       if (reader.PICC_ReadCardSerial())
       {
-        led_event.led_state |= 1 << PIN_LED_TOOL;
-
-        if (xQueueSend(rfid_params.leds, &led_event, 10) != pdPASS)
-        {
-          // Something went wrong
-        }
-
         printf("Card Found:\n\tSize: %d\n\tUID: %x %x %x %x %x %x %x %x %x %x\n\tSAK: %x\n",
           reader.uid.size,
           reader.uid.uidByte[0],
@@ -161,16 +137,13 @@ void vRfidTask(void* params)
           reader.uid.uidByte[9],
           reader.uid.sak
         );
+
+        if (xQueueSend(rfid_params.uid_queue, &reader.uid, 10) != pdPASS)
+        {
+          printf("Couldn't enqueue UID...\n");
+        }
       }
       vTaskDelay(300);
-    }
-
-    led_event.led_state &= ~((1 << PIN_LED_TOOL) | (1 << PIN_LED_INDUCT));
-    led_event.led_state ^= ((1 << PIN_LED_STATE));
-
-    if (xQueueSend(rfid_params.leds, &led_event, 10) != pdPASS)
-    {
-      // Something went wrong
     }
 
     vTaskDelay(0);
@@ -179,26 +152,33 @@ void vRfidTask(void* params)
 
 int main()
 {
+  // Board initialistion
   stdio_init_all();
   stdio_usb_init();
   init_pins();
 
+  // Load settings from FLASH
   init_settings();
 
+  // Setup button/LED tasks
   QueueHandle_t button_queue = xQueueCreate(1, sizeof(button_event_t));
   QueueHandle_t led_queue = xQueueCreate(1, sizeof(button_event_t));
 
   xTaskCreate(vButtonTask, "Button Task", 128, reinterpret_cast<void*>(&button_queue), 1, nullptr);
   xTaskCreate(vLEDTask, "LED Task", 128, reinterpret_cast<void*>(&led_queue), 1, nullptr);
 
-  rfid_params_t rfid_params;
-  rfid_params.leds = led_queue;
-  rfid_params.buttons = button_queue;
+  // Setup RFID task
+  QueueHandle_t uid_queue = xQueueCreate(1, sizeof(MFRC522::Uid));
+  rfid_params_t rfid_params = {
+    .uid_queue = uid_queue,
+  };
 
   xTaskCreate(vRfidTask, "RFID Task", 1024, reinterpret_cast<void*>(&rfid_params), 1, nullptr);
 
-  QueueHandle_t sub_queue = xQueueCreate(4, sizeof(mqtt_message_t*));
-  QueueHandle_t pub_queue = xQueueCreate(4, sizeof(mqtt_message_t*));
+  // Setup MQTT / WiFi task
+  QueueHandle_t pub_queue = xQueueCreate(4, sizeof(mqtt_message_t));
+  QueueHandle_t sub_queue = xQueueCreate(4, sizeof(char*));
+  QueueHandle_t incoming_queue = xQueueCreate(4, sizeof(mqtt_message_t));
 
   const settings_t* settings = get_settings();
   mqtt_task_params_t mqtt_params = {
@@ -210,12 +190,27 @@ int main()
     .port = 1883,
     .pub_queue = pub_queue,
     .sub_queue = sub_queue,
+    .incoming_queue = incoming_queue,
   };
 
   xTaskCreate(vMqttTask, "MQTT Task", 1024, &mqtt_params, 2, nullptr);
 
+  // Setup the tool task
+  tool_params_t tool_params = {
+    .name = settings->device_name,
+    .base_topic = settings->base_topic,
+    .sub_queue = sub_queue,
+    .pub_queue = pub_queue,
+    .incoming_queue = incoming_queue,
+    .uid_queue = uid_queue,
+    .led_queue = led_queue,
+    .button_queue = button_queue,
+  };
+
   Tool tool;
-  tool.init("Bandsaw");
+  tool.init(tool_params);
+
+  xTaskCreate(vToolDispatcher, settings->device_name, 1024, &tool, 1, nullptr);
 
   vTaskStartScheduler();
 

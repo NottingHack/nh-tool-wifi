@@ -2,26 +2,16 @@
 
 extern "C" {
 #include "FreeRTOS.h"
+#include "lwip/tcp.h"
 #include "queue.h"
 }
 
-// String pool for topic names
-//
-// Publish
-extern char* topic_AUTH;
-extern char* topic_COMPLETE;
-extern char* topic_INDUCT;
-extern char* topic_RESET;
-// Subscribe
-extern char* topic_GRANT;
-extern char* topic_DENY;
-extern char* topic_ISUC;
-extern char* topic_IFAL;
+#define MESSAGE_LEN 64
 
 typedef struct
 {
-  char* topic;      // Allocated from a pool of topic strings
-  char message[0];  // Allocated inline with the struct
+  const char* topic;              // Allocated from a pool of topic strings
+  char message[MESSAGE_LEN + 1];  // Pass the message around in a buffer
 } mqtt_message_t;
 
 typedef struct
@@ -36,8 +26,14 @@ typedef struct
   ip_addr_t server;
   uint16_t port;
 
+  // Messages written to the queue will be published
   xQueueHandle pub_queue;
+
+  // Topic names written to the queue will be subscribed to
   xQueueHandle sub_queue;
+
+  // Incoming messages to subscribed topics will be written here
+  xQueueHandle incoming_queue;
 } mqtt_task_params_t;
 
 void vMqttTask(void* params);
