@@ -2,6 +2,8 @@
 
 extern "C" {
   #include "FreeRTOS.h"
+  #include "event_groups.h"
+  #include "timers.h"
   #include "queue.h"
 }
 
@@ -69,7 +71,10 @@ private:
   // MQTT message handlers
   void handleConnect();
   void handleDisconnect();
-  void handleMqttMessage(char *topic, char *payload, int length);
+  void handleMqttMessage(const char *topic, const char *payload, int length);
+
+  // Utility
+  void clearUid();
 
   // Parameters
   const char *name;
@@ -83,8 +88,14 @@ private:
   QueueHandle_t led_queue;
   QueueHandle_t button_queue;
 
+  TimerHandle_t timeout_timer;
+
   // State
   ToolState state;
+
+  // User's card
+  uint8_t current_uid[10];
+  bool is_inductor;
 };
 
 // Dispatcher to invoke the tool's runTask method

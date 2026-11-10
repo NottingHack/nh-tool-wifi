@@ -12,6 +12,7 @@ extern "C" {
 
 #include "tool.h"
 
+#include "events.h"
 #include "mfrc522.h"
 #include "mqtt.h"
 #include "settings.h"
@@ -29,11 +30,6 @@ void init_pins()
 }
   }
 }
-
-typedef struct
-{
-  uint32_t led_state;
-} led_event_t;
 
 void vLEDTask(void* params)
 {
@@ -57,12 +53,6 @@ void vLEDTask(void* params)
     }
   }
 }
-
-typedef struct
-{
-  uint32_t button_state;
-  uint32_t change_mask;
-} button_event_t;
 
 void vButtonTask(void* params)
 {
@@ -114,7 +104,7 @@ void vRfidTask(void* params)
   MFRC522 reader;
 
   reader.PCD_Init();
-  //printf("RFID Reader Self Test: %s\n", reader.PCD_PerformSelfTest() ? "PASS" : "FAIL!");
+  //printf("RFID: Reader Self Test: %s\n", reader.PCD_PerformSelfTest() ? "PASS" : "FAIL!");
   reader.PCD_DumpVersionToSerial();	
 
   for (;;)
@@ -123,7 +113,8 @@ void vRfidTask(void* params)
     {
       if (reader.PICC_ReadCardSerial())
       {
-        printf("Card Found:\n\tSize: %d\n\tUID: %x %x %x %x %x %x %x %x %x %x\n\tSAK: %x\n",
+        /*
+        printf("RFID: Card Found:\n\tSize: %d\n\tUID: %x %x %x %x %x %x %x %x %x %x\n\tSAK: %x\n",
           reader.uid.size,
           reader.uid.uidByte[0],
           reader.uid.uidByte[1],
@@ -137,10 +128,11 @@ void vRfidTask(void* params)
           reader.uid.uidByte[9],
           reader.uid.sak
         );
+        */
 
         if (xQueueSend(rfid_params.uid_queue, &reader.uid, 10) != pdPASS)
         {
-          printf("Couldn't enqueue UID...\n");
+          printf("RFID: Couldn't enqueue UID...\n");
         }
       }
       vTaskDelay(300);

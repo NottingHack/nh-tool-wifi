@@ -11,7 +11,7 @@ extern "C" {
 typedef struct
 {
   const char* topic;              // Allocated from a pool of topic strings
-  char message[MESSAGE_LEN + 1];  // Pass the message around in a buffer
+  char payload[MESSAGE_LEN + 1];  // Pass the message around in a buffer
 } mqtt_message_t;
 
 typedef struct

@@ -11,7 +11,7 @@ RESET =    f"nh/tools/{tool}/RESET"
 # Outgoing topics
 GRANT =    f"nh/tools/{tool}/GRANT"
 DENY =     f"nh/tools/{tool}/DENY"
-ISUC =     f"nh/tools/{tool}/ISEC"
+ISUC =     f"nh/tools/{tool}/ISUC"
 IFAL =     f"nh/tools/{tool}/IFAL"
 
 # Cards

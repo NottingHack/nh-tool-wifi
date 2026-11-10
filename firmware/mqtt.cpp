@@ -148,7 +148,7 @@ static void mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t f
 
     for (int i = 0; i < len && context->offset < MESSAGE_LEN; ++i)
     {
-      context->buffer.message[context->offset++] = data[i];
+      context->buffer.payload[context->offset++] = data[i];
     }
 
     // Force null termination - overlong messages will be truncated
@@ -156,7 +156,7 @@ static void mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t f
     {
       context->offset = MESSAGE_LEN - 1;
     }
-    context->buffer.message[context->offset] = '\0';
+    context->buffer.payload[context->offset] = '\0';
 
     // Enqueue the message
     assert(xQueueSend(context->incoming_queue, &context->buffer, portMAX_DELAY) == pdPASS);
@@ -169,7 +169,7 @@ static void mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t f
     /* Handle fragmented payload, store in buffer, write to file or whatever */
     for (int i = 0; i < len && context->offset < MESSAGE_LEN; ++i)
     {
-      context->buffer.message[context->offset++] = data[i];
+      context->buffer.payload[context->offset++] = data[i];
     }
   }
 }
@@ -194,18 +194,6 @@ static void mqtt_connection_cb(mqtt_client_t* client, void* arg, mqtt_connection
   else
   {
     printf("MQTT: disconnected, reason: %d\n", status);
-  }
-}
-
-void example_publish(mqtt_client_t *client, void *arg)
-{
-  const char *pub_payload= "PubSubHubLubJub";
-  err_t err;
-  u8_t qos = 2; /* 0 1 or 2, see MQTT specification */
-  u8_t retain = 0; /* No don't retain such crappy payload... */
-  err = mqtt_publish(client, "pub_topic", pub_payload, strlen(pub_payload), qos, retain, mqtt_pub_request_cb, arg);
-  if(err != ERR_OK) {
-    printf("MQTT: Publish err: %d\n", err);
   }
 }
 
@@ -236,7 +224,7 @@ void vMqttTask(void* in_params)
     .offset = 0,
     .incoming_queue = params.incoming_queue,
   };
-  memset(context.buffer.message, 0, sizeof(context.buffer.message));
+  memset(context.buffer.payload, 0, sizeof(context.buffer.payload));
   context.topic_pool.reserve(4);
 
   mqtt_client_t* mqtt_client = mqtt_client_new();
@@ -257,7 +245,7 @@ void vMqttTask(void* in_params)
     {
       // Check for requests to subscribe
       const char* topic = nullptr;
-      if (xQueueReceive(params.sub_queue, &topic, 50) == pdPASS)
+      while (xQueueReceive(params.sub_queue, &topic, 50) == pdPASS)
       {
         // Add the topic to the topic pool so we can reuse the string pointer
         context.topic_pool.push_back(topic);
@@ -268,6 +256,20 @@ void vMqttTask(void* in_params)
         if (err != ERR_OK)
         {
           printf("MQTT: mqtt_subscribe returned: %d\n", err);
+        }
+      }
+
+      // Check for requests to publish
+      mqtt_message_t message;
+      while ( xQueueReceive(params.pub_queue, &message, 50) == pdPASS)
+      {
+        err_t err;
+        u8_t qos = 2;    /* Deliver exactly once */
+        u8_t retain = 0; /* Do not retain */
+        printf("MQTT: Publish topic: %s payload: %s\n", message.topic, message.payload);
+        err = mqtt_publish(mqtt_client, message.topic, message.payload, strlen(message.payload), qos, retain, mqtt_pub_request_cb, &context);
+        if(err != ERR_OK) {
+          printf("MQTT: Publish error: %d\n", err);
         }
       }
     }
