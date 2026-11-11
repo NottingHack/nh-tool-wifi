@@ -2,10 +2,12 @@
 
 extern "C" {
   #include "FreeRTOS.h"
-  #include "event_groups.h"
+  #include "semphr.h"
   #include "timers.h"
   #include "queue.h"
 }
+
+#include "events.h"
 
 typedef struct
 {
@@ -16,6 +18,7 @@ typedef struct
   QueueHandle_t incoming_queue;
   QueueHandle_t uid_queue;
   QueueHandle_t led_queue;
+  QueueHandle_t relay_queue;
   QueueHandle_t button_queue;
 } tool_params_t;
 
@@ -47,8 +50,6 @@ public:
   const char* topic_ISUC     = nullptr;
   const char* topic_IFAL     = nullptr;
 
-  //Tool(const char* name, Queuehandle_t led_queue);
-
   void init(tool_params_t params);
 
   // FreeRTOS task loop
@@ -56,13 +57,8 @@ public:
 
 private:
 
-  //bool auth(char *serial);
-  //void complete();
-  //bool induct(char *inductor_serial, char *inductee_serial);
-
   // RFID handlers
   void handleNewCard(uint8_t uid[10]);
-  void handleCardRemoved();
 
   // Button handlers
   void handleInduct();
@@ -73,8 +69,27 @@ private:
   void handleDisconnect();
   void handleMqttMessage(const char *topic, const char *payload, int length);
 
-  // Utility
+  // LEDs and Relay
+  void ledOn(int index);
+  void ledOff(int index);
+  void ledSet(int index, bool state);
+  void relayOn();
+  void relayOff();
+
+  // Timeout
+  void setTimeout(int timeout);
+  void clearTimeout();
+  void restartTimeout();
+  void handleTimeout();
+
+  static void timeoutHandler(TimerHandle_t timer);
+
+  // Session management
   void clearUid();
+  uint64_t getSessionTimeInMilliseconds();
+  int getSessionHours();
+  int getSessionMinutes();
+  int getSessionSeconds();
 
   // Parameters
   const char *name;
@@ -86,16 +101,20 @@ private:
   QueueHandle_t uid_queue;
 
   QueueHandle_t led_queue;
+  QueueHandle_t relay_queue;
   QueueHandle_t button_queue;
 
+  SemaphoreHandle_t timeout_semaphore;
   TimerHandle_t timeout_timer;
 
   // State
   ToolState state;
+  led_event_t led_state;
 
-  // User's card
+  // Session data
   uint8_t current_uid[10];
   bool is_inductor;
+  TickType_t session_start;
 };
 
 // Dispatcher to invoke the tool's runTask method

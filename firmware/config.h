@@ -26,6 +26,13 @@
 #define PIN_BUTTON_INDUCT 20
 #define PIN_BUTTON_SIGNOFF 21
 
+#define SESSION_TIMEOUT 15    // 15s - Session timout - how long to wait without seeing the card before disabling tool
+#define AUTH_TIMEOUT 10       // How long in seconds to wait for AUTH response
+#define INDUCT_TIMEOUT 30     // How long in seconds to wait for card when in the induct state
+                              //
+#define INDUCT_FLASH_FREQ 250 // how fast the induct led flashed after induct button pushed (lower is faster)
+#define STATE_FLASH_FREQ  100 // Same again but for state LED
+
 typedef struct
 {
 	int pin_number;

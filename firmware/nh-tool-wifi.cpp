@@ -54,6 +54,53 @@ void vLEDTask(void* params)
   }
 }
 
+void vRelayTask(void* params)
+{
+  QueueHandle_t queue = *reinterpret_cast<QueueHandle_t*>(params);
+
+  // Rest for 100ms
+  gpio_put(PIN_RELAY_SET, 0);
+  gpio_put(PIN_RELAY_RESET, 1);
+
+  vTaskDelay(pdMS_TO_TICKS(100));
+
+  // Both off
+  gpio_put(PIN_RELAY_SET, 0);
+  gpio_put(PIN_RELAY_RESET, 0);
+
+  if (queue)
+  {
+    for (;;)
+    {
+      bool relay_state = 0;
+      if (xQueueReceive(queue, &relay_state, portMAX_DELAY) == pdPASS)
+      {
+        // Both off for 10 ms
+        gpio_put(PIN_RELAY_SET, 0);
+        gpio_put(PIN_RELAY_RESET, 0);
+
+        vTaskDelay(pdMS_TO_TICKS(10));
+
+        // Set the appropriate pin for 100ms
+        if (relay_state)
+        {
+          gpio_put(PIN_RELAY_SET, 1);
+        }
+        else
+        {
+          gpio_put(PIN_RELAY_RESET, 1);
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(100));
+
+        // Both off
+        gpio_put(PIN_RELAY_SET, 0);
+        gpio_put(PIN_RELAY_RESET, 0);
+      }
+    }
+  }
+}
+
 void vButtonTask(void* params)
 {
   QueueHandle_t queue = *reinterpret_cast<QueueHandle_t*>(params);
@@ -152,12 +199,14 @@ int main()
   // Load settings from FLASH
   init_settings();
 
-  // Setup button/LED tasks
+  // Setup button/LED/relay tasks
   QueueHandle_t button_queue = xQueueCreate(1, sizeof(button_event_t));
   QueueHandle_t led_queue = xQueueCreate(1, sizeof(button_event_t));
+  QueueHandle_t relay_queue = xQueueCreate(1, sizeof(bool));
 
   xTaskCreate(vButtonTask, "Button Task", 128, reinterpret_cast<void*>(&button_queue), 1, nullptr);
   xTaskCreate(vLEDTask, "LED Task", 128, reinterpret_cast<void*>(&led_queue), 1, nullptr);
+  xTaskCreate(vLEDTask, "Relay Task", 128, reinterpret_cast<void*>(&relay_queue), 1, nullptr);
 
   // Setup RFID task
   QueueHandle_t uid_queue = xQueueCreate(1, sizeof(MFRC522::Uid));
@@ -196,6 +245,7 @@ int main()
     .incoming_queue = incoming_queue,
     .uid_queue = uid_queue,
     .led_queue = led_queue,
+    .relay_queue = relay_queue,
     .button_queue = button_queue,
   };
 

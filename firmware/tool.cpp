@@ -6,9 +6,9 @@ extern "C" {
 #include "config.h"
 }
 
+#include "config.h"
 #include "mfrc522.h"
 #include "mqtt.h"
-#include "events.h"
 
 #include "tool.h"
 
@@ -23,6 +23,18 @@ const char* build_topic(const char* prefix, const char* device, const char* suff
   return result;
 }
 
+void Tool::timeoutHandler(TimerHandle_t timer)
+{
+  if (Tool* tool = (Tool*)pvTimerGetTimerID(timer))
+  {
+    // Signal timeout to the tool
+    if (xSemaphoreGive(tool->timeout_semaphore) != pdTRUE)
+    {
+      assert(0 && "Tool: Unexpected double timeout!");
+    }
+  }
+}
+
 void Tool::init(tool_params_t params) {
   // Copy the relevant parameters
   name = params.name;
@@ -34,6 +46,7 @@ void Tool::init(tool_params_t params) {
   uid_queue = params.uid_queue;
 
   led_queue = params.led_queue;
+  relay_queue = params.relay_queue;
   button_queue = params.button_queue;
 
   clearUid();
@@ -55,25 +68,28 @@ void Tool::init(tool_params_t params) {
 
   state = DEV_NO_CONN;
 
+  // Create timers
+  timeout_timer = xTimerCreate("timeout", pdMS_TO_TICKS(15000), pdFALSE, this, &Tool::timeoutHandler);
+  timeout_semaphore = xSemaphoreCreateBinary();
+
   // Send RESET
   mqtt_message_t message;
   memset(&message, 0, sizeof(message));
 
   message.topic = topic_RESET;
   snprintf(message.payload, sizeof(message.payload), "BOOT");
-  
+
   assert(xQueueSend(pub_queue, &message, portMAX_DELAY) == pdPASS);
 }
 
-/*
-bool Tool::auth(char *serial) {
-  waiting_auth = true;
-  return false;
-}
-*/
-
 void Tool::runTask()
 {
+  int last_session_time = 0;
+  int last_led_tick = 0;
+  int flash_frequency = 0;
+  bool flash_state = false;
+  uint32_t last_led_state = 0;
+
   vTaskDelay(3000);
 
   // Subscribe to the relevant topics
@@ -89,7 +105,7 @@ void Tool::runTask()
   {
     // Anything from MQTT?
     mqtt_message_t incoming;
-    if (xQueueReceive(incoming_queue, &incoming, 10) == pdPASS)
+    if (xQueueReceive(incoming_queue, &incoming, 0) == pdPASS)
     {
       printf("Tool: Incoming Message: Topic: %s Payload: %s\n", incoming.topic, incoming.payload);
       handleMqttMessage(incoming.topic, incoming.payload, strlen(incoming.payload));
@@ -97,7 +113,7 @@ void Tool::runTask()
 
     // Anything from the reader?
     MFRC522::Uid card_id;
-    if (xQueueReceive(uid_queue, &card_id, 10) == pdPASS)
+    if (xQueueReceive(uid_queue, &card_id, 0) == pdPASS)
     {
         printf("Tool: Seen Card: %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\tSize: %d\tSAK: %x\n",
           card_id.uidByte[0],
@@ -119,7 +135,7 @@ void Tool::runTask()
     
     // Any buttons?
     button_event_t button_event;
-    if (xQueueReceive(button_queue, &button_event, 10) == pdPASS)
+    if (xQueueReceive(button_queue, &button_event, 0) == pdPASS)
     {
       // Signoff button was just pressed
       if (button_event.change_mask & button_event.button_state & (1 << PIN_BUTTON_INDUCT))
@@ -135,6 +151,122 @@ void Tool::runTask()
         handleSignoff();
       }
     }
+
+    // Timed out?
+    if (xSemaphoreTake(timeout_semaphore, 0) == pdTRUE)
+    {
+      handleTimeout();
+    }
+
+    // Calculate LED flash state
+    const int led_tick= xTaskGetTickCount();
+    if (led_tick > last_led_tick + pdMS_TO_TICKS(flash_frequency))
+    {
+      last_led_tick = led_tick;
+      flash_state = !flash_state;
+    }
+    // Wrapped around or reset
+    else if (last_led_tick > led_tick)
+    {
+      last_led_tick = led_tick;
+      flash_state = true;
+    }
+
+    // Update LEDs and relays based on state
+    if (state == DEV_NO_CONN)
+    {
+      // Off
+      ledOff(PIN_LED_TOOL);
+      ledOff(PIN_LED_INDUCT);
+
+      relayOff();
+
+      // Flash state
+      flash_frequency = STATE_FLASH_FREQ;
+      ledSet(PIN_LED_STATE, flash_state);
+    }
+    else if (state == DEV_IDLE)
+    {
+      // All off
+      ledOff(PIN_LED_TOOL);
+      ledOff(PIN_LED_INDUCT);
+      ledOff(PIN_LED_STATE);
+
+      relayOff();
+    }
+    else if (state == DEV_AUTH_WAIT)
+    {
+      // Flash state
+      flash_frequency = STATE_FLASH_FREQ;
+      ledSet(PIN_LED_STATE, flash_state);
+    }
+    else if (state == DEV_ACTIVE)
+    {
+      // Tool LED and relay on
+      ledOn(PIN_LED_TOOL);
+      relayOn();
+
+      // State LED off
+      ledOff(PIN_LED_STATE);
+
+      if (is_inductor)
+      {
+        // Induct LED solid if we're an inductor
+        ledOn(PIN_LED_INDUCT);
+      }
+    }
+    else if (state == DEV_INDUCT)
+    {
+      // State LED solid
+      ledOn(PIN_LED_STATE);
+
+      // Induct LED flashes
+      flash_frequency = INDUCT_FLASH_FREQ;
+      ledSet(PIN_LED_INDUCT, flash_state);
+    }
+    else if (state == DEV_INDUCT_WAIT)
+    {
+      // Induct LED solid
+      ledOn(PIN_LED_INDUCT);
+
+      // State LED flashes
+      flash_frequency = STATE_FLASH_FREQ;
+      ledSet(PIN_LED_STATE, flash_state);
+    }
+    else
+    {
+      // Induct and Status LEDs off
+      ledOff(PIN_LED_INDUCT);
+      ledOff(PIN_LED_STATE);
+    }
+
+    // Update LEDs if the state changed
+    if (led_state.led_state != last_led_state)
+    {
+      assert(xQueueSend(led_queue, &led_state, portMAX_DELAY) == pdPASS);
+    }
+
+    // Show session time every second while active
+    if (state == DEV_ACTIVE)
+    {
+      const int session_time = getSessionTimeInMilliseconds();
+      // At least a second passed
+      if (session_time >= last_session_time + 1000)
+      {
+        printf(
+          "Tool: Session Time: %02d:%02d:%02d\n",
+          getSessionHours(),
+          getSessionMinutes(),
+          getSessionSeconds()
+        );
+        last_session_time = session_time;
+      }
+      // Wrapped around (unlikely) or started a new session, reset
+      else if (session_time < last_session_time)
+      {
+        last_session_time = session_time;
+      }
+    }
   }
 }
 
@@ -143,7 +275,19 @@ void Tool::handleNewCard(uint8_t uid[10])
   mqtt_message_t message;
   memset(&message, 0, sizeof(message));
   
-  if (state == DEV_IDLE)
+  if (state == DEV_ACTIVE)
+  {
+    // Card still present, reset timeout
+    if (memcmp(uid, current_uid, sizeof(uint8_t) * 10) == 0)
+    {
+      restartTimeout();
+    }
+    else
+    {
+      printf("Tool: Card changed!\n");
+    }
+  }
+  else if (state == DEV_IDLE)
   {
     state = DEV_AUTH_WAIT;
 
@@ -168,53 +312,51 @@ void Tool::handleNewCard(uint8_t uid[10])
     assert(xQueueSend(pub_queue, &message, portMAX_DELAY) == pdPASS);
 
     // Start timeout
+    setTimeout(AUTH_TIMEOUT * 1000);
   }
   else if (state == DEV_INDUCT)
   {
-    state = DEV_INDUCT_WAIT;
+    if (memcmp(uid, current_uid, sizeof(uint8_t) * 10) != 0)
+    {
+      state = DEV_INDUCT_WAIT;
 
-    // Send INDUCT
-    message.topic = topic_INDUCT;
-    snprintf(
-      message.payload,
-      sizeof(message.payload),
-      "%02x%02x%02x%02x%02x%02x%02x%02x:%02x%02x%02x%02x%02x%02x%02x%02x",
-      current_uid[0],
-      current_uid[1],
-      current_uid[2],
-      current_uid[3],
-      current_uid[4],
-      current_uid[5],
-      current_uid[6],
-      current_uid[7],
-      uid[0],
-      uid[1],
-      uid[2],
-      uid[3],
-      uid[4],
-      uid[5],
-      uid[6],
-      uid[7]
-    );
-    assert(xQueueSend(pub_queue, &message, portMAX_DELAY) == pdPASS);
+      // Send INDUCT
+      message.topic = topic_INDUCT;
+      snprintf(
+          message.payload,
+          sizeof(message.payload),
+          "%02x%02x%02x%02x%02x%02x%02x%02x:%02x%02x%02x%02x%02x%02x%02x%02x",
+          current_uid[0],
+          current_uid[1],
+          current_uid[2],
+          current_uid[3],
+          current_uid[4],
+          current_uid[5],
+          current_uid[6],
+          current_uid[7],
+          uid[0],
+          uid[1],
+          uid[2],
+          uid[3],
+          uid[4],
+          uid[5],
+          uid[6],
+          uid[7]
+          );
+      assert(xQueueSend(pub_queue, &message, portMAX_DELAY) == pdPASS);
 
-    // Start timeout
+      // Start timeout
+      setTimeout(INDUCT_TIMEOUT * 1000);
+    }
+    else
+    {
+      // Same card, did we mean to press induct yet?
+      printf("Tool: Induct pressed but this is the same card...ignoring\n");
+    }
   }
   else
   {
     printf("Tool: Unexpected card in state %d\n", state);
-  }
-}
-
-void Tool::handleCardRemoved()
-{
-  if (state == DEV_ACTIVE)
-  {
-    // Start timeout
-  }
-  else
-  {
-    printf("Tool: Card Removed from unexpected state %d\n", state);
   }
 }
 
@@ -239,13 +381,15 @@ void Tool::handleSignoff()
   {
     state = DEV_IDLE;
 
+    // Work out active time
+    uint64_t session_time = getSessionTimeInMilliseconds() / 1000;
+
     // Send COMPLETE
     mqtt_message_t message;
     memset(&message, 0, sizeof(message));
 
-    // TODO: Track active time
     message.topic = topic_COMPLETE;
-    snprintf(message.payload, sizeof(message.payload), "<TOOL ACTIVE TIME>");
+    snprintf(message.payload, sizeof(message.payload), "%llu", session_time);
   
     assert(xQueueSend(pub_queue, &message, portMAX_DELAY) == pdPASS);
   }
@@ -322,6 +466,12 @@ void Tool::handleMqttMessage(const char *topic, const char *payload, int length)
       }
 
       printf("%s\n", payload + 1);
+
+      // Set a new timeout to make sure the card is present
+      setTimeout(SESSION_TIMEOUT * 1000);
+
+      // Record session start time
+      session_start = xTaskGetTickCount();
     }
     else
     {
@@ -334,6 +484,7 @@ void Tool::handleMqttMessage(const char *topic, const char *payload, int length)
     {
       state = DEV_IDLE;
 
+      clearTimeout();
       clearUid();
 
       // What if not connected?
@@ -348,6 +499,9 @@ void Tool::handleMqttMessage(const char *topic, const char *payload, int length)
     if (state == DEV_INDUCT_WAIT)
     {
       state = DEV_IDLE;
+
+      clearTimeout();
+      clearUid();
     }
     else
     {
@@ -360,6 +514,8 @@ void Tool::handleMqttMessage(const char *topic, const char *payload, int length)
     {
       state = DEV_INDUCT;
 
+      clearTimeout();
+
       printf("Tool: Induct Failed\n%s\n", payload);
     }
     else
@@ -369,13 +525,123 @@ void Tool::handleMqttMessage(const char *topic, const char *payload, int length)
   }
 }
 
+void Tool::ledOn(int index)
+{
+  led_state.led_state |= (1 << index);
+}
+
+void Tool::ledOff(int index)
+{
+  led_state.led_state &= ~(1 << index);
+}
+
+void Tool::ledSet(int index, bool state)
+{
+  if (state)
+  {
+    ledOn(index);
+  }
+  else
+  {
+    ledOff(index);
+  }
+}
+
+void Tool::relayOn()
+{
+  // Relay on
+  bool status = true;
+  assert(xQueueSend(relay_queue, &status, portMAX_DELAY) == pdPASS);
+}
+
+void Tool::relayOff()
+{
+  // Relay off
+  bool status = false;
+  assert(xQueueSend(relay_queue, &status, portMAX_DELAY) == pdPASS);
+}
+
+void Tool::setTimeout(int timeout)
+{
+  // Stop timer, update timeout, and restart
+  clearTimeout();
+  xTimerChangePeriod(timeout_timer, pdMS_TO_TICKS(timeout), portMAX_DELAY);
+}
+
+void Tool::clearTimeout()
+{
+  // Stop the timer if running
+  if (xTimerIsTimerActive(timeout_timer) != pdFALSE)
+  {
+    xTimerStop(timeout_timer, portMAX_DELAY);
+  }
+}
+
+void Tool::restartTimeout()
+{
+  xTimerReset(timeout_timer, portMAX_DELAY);
+}
+
+void Tool::handleTimeout()
+{
+  if (state == DEV_AUTH_WAIT)
+  {
+    printf("Tool: AUTH timeout\n");
+    state = DEV_IDLE;
+  }
+  else if (state == DEV_INDUCT_WAIT)
+  {
+    printf("Tool: INDUCT timeout\n");
+    state = DEV_IDLE;
+  }
+  else if (state == DEV_ACTIVE)
+  {
+    printf("Tool: Card timeout\n");
+    state = DEV_IDLE;
+  }
+  else
+  {
+    printf("Tool: Timeout from unexpected state %d\n", state);
+  }
+}
+
 void Tool::clearUid()
 {
-    // Clear current UID
-    memset(current_uid, 0, sizeof(uint8_t) * 10);
+  // Clear current UID
+  memset(current_uid, 0, sizeof(uint8_t) * 10);
 
-    // Not an inductor
-    is_inductor = false;
+  // Not an inductor
+  is_inductor = false;
+}
+
+uint64_t Tool::getSessionTimeInMilliseconds()
+{
+  uint64_t session_time = 0;
+  TickType_t session_end = xTaskGetTickCount();
+  if (session_end >= session_start) // No wrap
+  {
+    session_time = session_end - session_start;
+  }
+  else
+  {
+    session_time = session_end + (((uint64_t)-1) - session_start);
+  }
+  return pdTICKS_TO_MS(session_time);
+}
+
+int Tool::getSessionHours()
+{
+  return (getSessionTimeInMilliseconds() / 3600000);
+}
+
+int Tool::getSessionMinutes()
+{
+  return (getSessionTimeInMilliseconds() / 60000) % 60;
+}
+
+int Tool::getSessionSeconds()
+{
+  return (getSessionTimeInMilliseconds() / 1000) % 60;
 }
 
 void vToolDispatcher(void* in_params)
