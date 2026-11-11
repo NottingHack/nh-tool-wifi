@@ -183,13 +183,6 @@ static void mqtt_connection_cb(mqtt_client_t* client, void* arg, mqtt_connection
     
     /* Setup callback for incoming publish requests */
     mqtt_set_inpub_callback(client, mqtt_incoming_publish_cb, mqtt_incoming_data_cb, arg);
-    
-    /* Subscribe to a topic named "subtopic" with QoS level 1, call mqtt_sub_request_cb with result */ 
-    //err = mqtt_subscribe(client, "subtopic", 1, mqtt_sub_request_cb, arg);
-
-    //if(err != ERR_OK) {
-    //  printf("MQTT: mqtt_subscribe returned: %d\n", err);
-    //}
   }
   else
   {
@@ -243,6 +236,12 @@ void vMqttTask(void* in_params)
 
     if (mqtt_client_is_connected(mqtt_client))
     {
+      // Signal connected
+      if (uxSemaphoreGetCount(params.connection_state_semaphore) == 0)
+      {
+        xSemaphoreGive(params.connection_state_semaphore);
+      }
+
       // Check for requests to subscribe
       const char* topic = nullptr;
       while (xQueueReceive(params.sub_queue, &topic, 50) == pdPASS)
@@ -277,8 +276,14 @@ void vMqttTask(void* in_params)
     {
       // Not connected, wait a bit
       printf("MQTT: client is not connected.\n");
+
+      // Signal connection dropped
+      if (uxSemaphoreGetCount(params.connection_state_semaphore) == 1)
+      {
+        xSemaphoreTake(params.connection_state_semaphore, 0);
+      }
+
       vTaskDelay(500);
     }
-
   }
 }

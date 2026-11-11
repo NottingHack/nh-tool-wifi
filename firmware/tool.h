@@ -20,6 +20,7 @@ typedef struct
   QueueHandle_t led_queue;
   QueueHandle_t relay_queue;
   QueueHandle_t button_queue;
+  SemaphoreHandle_t connection_state_semaphore;
 } tool_params_t;
 
 class Tool
@@ -65,7 +66,7 @@ private:
   void handleSignoff();
 
   // MQTT message handlers
-  void handleConnect();
+  void handleConnect(const char* payload);
   void handleDisconnect();
   void handleMqttMessage(const char *topic, const char *payload, int length);
 
@@ -106,6 +107,8 @@ private:
 
   SemaphoreHandle_t timeout_semaphore;
   TimerHandle_t timeout_timer;
+
+  SemaphoreHandle_t connection_state_semaphore;
 
   // State
   ToolState state;

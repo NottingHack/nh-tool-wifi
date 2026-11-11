@@ -108,6 +108,9 @@ void vButtonTask(void* params)
   if (queue)
   {
     uint32_t button_mask = 0x00;
+    button_mask |= gpio_get(PIN_BUTTON_INDUCT) << PIN_BUTTON_INDUCT;
+    button_mask |= gpio_get(PIN_BUTTON_SIGNOFF) << PIN_BUTTON_SIGNOFF;
+
     for (;;)
     {
       uint32_t new_mask = 0x00;
@@ -220,6 +223,7 @@ int main()
   QueueHandle_t pub_queue = xQueueCreate(4, sizeof(mqtt_message_t));
   QueueHandle_t sub_queue = xQueueCreate(4, sizeof(char*));
   QueueHandle_t incoming_queue = xQueueCreate(4, sizeof(mqtt_message_t));
+  SemaphoreHandle_t connection_state_semaphore = xSemaphoreCreateBinary();
 
   const settings_t* settings = get_settings();
   mqtt_task_params_t mqtt_params = {
@@ -232,6 +236,7 @@ int main()
     .pub_queue = pub_queue,
     .sub_queue = sub_queue,
     .incoming_queue = incoming_queue,
+    .connection_state_semaphore = connection_state_semaphore,
   };
 
   xTaskCreate(vMqttTask, "MQTT Task", 1024, &mqtt_params, 2, nullptr);
@@ -247,6 +252,7 @@ int main()
     .led_queue = led_queue,
     .relay_queue = relay_queue,
     .button_queue = button_queue,
+    .connection_state_semaphore = connection_state_semaphore,
   };
 
   Tool tool;

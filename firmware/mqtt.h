@@ -4,6 +4,7 @@ extern "C" {
 #include "FreeRTOS.h"
 #include "lwip/tcp.h"
 #include "queue.h"
+#include "semphr.h"
 }
 
 #define MESSAGE_LEN 64
@@ -34,6 +35,9 @@ typedef struct
 
   // Incoming messages to subscribed topics will be written here
   xQueueHandle incoming_queue;
+
+  // Connection status semaphore
+  xSemaphoreHandle connection_state_semaphore;
 } mqtt_task_params_t;
 
 void vMqttTask(void* params);

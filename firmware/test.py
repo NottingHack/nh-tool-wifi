@@ -55,7 +55,7 @@ def on_message(client, userdata, msg):
             client.publish(IFAL, "Did Not Induct")
             print("NOT INDUCTED " + inductee)
     elif msg.topic == RESET:
-        print("RESET " + msg.payload)
+        print("RESET " + msg.payload.decode())
 
 mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
 mqttc.on_connect = on_connect

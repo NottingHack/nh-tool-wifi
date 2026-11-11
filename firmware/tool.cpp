@@ -49,6 +49,8 @@ void Tool::init(tool_params_t params) {
   relay_queue = params.relay_queue;
   button_queue = params.button_queue;
 
+  connection_state_semaphore = params.connection_state_semaphore;
+
   clearUid();
 
   // Build topic string pool
@@ -71,15 +73,6 @@ void Tool::init(tool_params_t params) {
   // Create timers
   timeout_timer = xTimerCreate("timeout", pdMS_TO_TICKS(15000), pdFALSE, this, &Tool::timeoutHandler);
   timeout_semaphore = xSemaphoreCreateBinary();
-
-  // Send RESET
-  mqtt_message_t message;
-  memset(&message, 0, sizeof(message));
-
-  message.topic = topic_RESET;
-  snprintf(message.payload, sizeof(message.payload), "BOOT");
-
-  assert(xQueueSend(pub_queue, &message, portMAX_DELAY) == pdPASS);
 }
 
 void Tool::runTask()
@@ -90,7 +83,11 @@ void Tool::runTask()
   bool flash_state = false;
   uint32_t last_led_state = 0;
 
-  vTaskDelay(3000);
+  // Wait for MQTT connection
+  while (uxSemaphoreGetCount(connection_state_semaphore) == 0)
+  {
+    vTaskDelay(100);
+  }
 
   // Subscribe to the relevant topics
   assert(xQueueSend(sub_queue, &topic_GRANT, portMAX_DELAY) == pdPASS);
@@ -98,11 +95,40 @@ void Tool::runTask()
   assert(xQueueSend(sub_queue, &topic_ISUC, portMAX_DELAY) == pdPASS);
   assert(xQueueSend(sub_queue, &topic_IFAL, portMAX_DELAY) == pdPASS);
 
-  // TODO: Signal connect/disconnect properly
-  handleConnect();
+  // Set BOOT
+  handleConnect("BOOT");
 
+  bool connected = true;
   for (;;)
   {
+    // Did we disconnect?
+    if (uxSemaphoreGetCount(connection_state_semaphore) == 0)
+    {
+      if (connected == true)
+      {
+        printf("Tool: Connection dropped\n");
+      }
+      if (state == DEV_IDLE)
+      {
+        state = DEV_NO_CONN;
+      }
+      connected = false;
+    }
+    // Did we reconnect?
+    else if (!connected)
+    {
+      printf("Tool: Reconnect\n");
+      if (state == DEV_IDLE)
+      {
+        handleConnect("IDLE");
+      }
+      else
+      {
+        handleConnect("ACTIVE");
+      }
+      connected = true;
+    }
+
     // Anything from MQTT?
     mqtt_message_t incoming;
     if (xQueueReceive(incoming_queue, &incoming, 0) == pdPASS)
@@ -403,7 +429,7 @@ void Tool::handleSignoff()
   }
 }
 
-void Tool::handleConnect()
+void Tool::handleConnect(const char* payload)
 {
   if (state == DEV_NO_CONN)
   {
@@ -411,20 +437,19 @@ void Tool::handleConnect()
 
     clearUid();
 
-    // Send RESET
-    mqtt_message_t message;
-    memset(&message, 0, sizeof(message));
-
-    // TODO: Figure out if we're active or idle
-    message.topic = topic_RESET;
-    snprintf(message.payload, sizeof(message.payload), "IDLE");
-  
-    assert(xQueueSend(pub_queue, &message, portMAX_DELAY) == pdPASS);
   }
-  else
-  {
+  else {
     printf("Tool: Connect from unexpected state %d\n", state);
   }
+
+  // Send RESET
+  mqtt_message_t message;
+  memset(&message, 0, sizeof(message));
+
+  message.topic = topic_RESET;
+  snprintf(message.payload, sizeof(message.payload), "%s", payload);
+
+  assert(xQueueSend(pub_queue, &message, portMAX_DELAY) == pdPASS);
 }
 
 void Tool::handleDisconnect()
