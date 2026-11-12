@@ -4,6 +4,3 @@
 [submodule "firmware/libs/FreeRTOS-Kernel"]
 	path = firmware/libs/FreeRTOS-Kernel
 	url = https://github.com/FreeRTOS/FreeRTOS-Kernel
-[submodule "firmware/libs/coreMQTT"]
-	path = firmware/libs/coreMQTT
-	url = https://github.com/FreeRTOS/coreMQTT.git
