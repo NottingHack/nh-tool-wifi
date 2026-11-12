@@ -6,7 +6,6 @@ extern "C" {
 #include "lwip/apps/mqtt.h"
 #include "pico/stdlib.h"
 #include "config.h"
-#include "tool.h"
 #include "task.h"
 #include "queue.h"
 }
