@@ -94,4 +94,7 @@
 #define LWIP_ALTCP_TLS           0
 #define LWIP_ALTCP_TLS_MBEDTLS   0
 #define MEMP_NUM_SYS_TIMEOUT     LWIP_NUM_SYS_TIMEOUT_INTERNAL + 1
+
+// Max 6 requests in flight for 4 subscribes and 1 publish during initalisation
+#define MQTT_REQ_MAX_IN_FLIGHT      6
 #endif

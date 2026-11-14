@@ -11,7 +11,7 @@ extern "C" {
 
 typedef struct
 {
-  const char *name;
+  const char* name;
   const char* base_topic;
   QueueHandle_t sub_queue;
   QueueHandle_t pub_queue;
