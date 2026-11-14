@@ -59,7 +59,7 @@ public:
 private:
 
   // RFID handlers
-  void handleNewCard(uint8_t uid[10]);
+  void handleNewCard(uint8_t uid[10], size_t size);
 
   // Button handlers
   void handleInduct();
@@ -116,6 +116,7 @@ private:
 
   // Session data
   uint8_t current_uid[10];
+  size_t current_size;
   bool is_inductor;
   TickType_t session_start;
 };

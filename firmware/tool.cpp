@@ -156,7 +156,7 @@ void Tool::runTask()
           card_id.sak
         );
 
-        handleNewCard(card_id.uidByte);
+        handleNewCard(card_id.uidByte, card_id.size);
     }
     
     // Any buttons?
@@ -296,15 +296,92 @@ void Tool::runTask()
   }
 }
 
-void Tool::handleNewCard(uint8_t uid[10])
+static void formatUid(char* buffer, size_t buffer_size, uint8_t uid[10], size_t size)
+{
+  if (size == 4)
+  {
+    snprintf(
+      buffer,
+      buffer_size,
+      "%02x%02x%02x%02x", 
+      uid[0],
+      uid[1],
+      uid[2],
+      uid[3]
+    );
+  }
+  else if (size == 7)
+  {
+    snprintf(
+      buffer,
+      buffer_size,
+      "%02x%02x%02x%02x%02x%02x%02x", 
+      uid[0],
+      uid[1],
+      uid[2],
+      uid[3],
+      uid[4],
+      uid[5],
+      uid[6]
+    );
+  }
+  else if (size == 10)
+  {
+    snprintf(
+      buffer,
+      buffer_size,
+      "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x", 
+      uid[0],
+      uid[1],
+      uid[2],
+      uid[3],
+      uid[4],
+      uid[5],
+      uid[6],
+      uid[7],
+      uid[8],
+      uid[9]
+    );
+  }
+  else
+  {
+    snprintf(buffer, buffer_size, "ERR:%d", size);
+  }
+}
+
+static bool cardSizeIsValid(size_t size)
+{
+  switch (size)
+  {
+    case 4:
+    case 7:
+    case 10:
+    {
+      return true;
+    }
+    default:
+    {
+      return false;
+    }
+  }
+}
+
+void Tool::handleNewCard(uint8_t uid[10], size_t size)
 {
   mqtt_message_t message;
   memset(&message, 0, sizeof(message));
+
+  // Ignore cards of invalid size
+  if (!cardSizeIsValid(size))
+  {
+    printf("Tool: Unexpected card size %d\n", size);
+    return;
+  }
   
   if (state == DEV_ACTIVE)
   {
     // Card still present, reset timeout
-    if (memcmp(uid, current_uid, sizeof(uint8_t) * 10) == 0)
+    if (size == current_size && memcmp(uid, current_uid, sizeof(uint8_t) * size) == 0)
     {
       restartTimeout();
     }
@@ -318,23 +395,12 @@ void Tool::handleNewCard(uint8_t uid[10])
     state = DEV_AUTH_WAIT;
 
     // Record UID
-    memcpy(current_uid, uid, sizeof(uint8_t) * 10);
+    memcpy(current_uid, uid, sizeof(uint8_t) * size);
+    current_size = size;
 
     // Send AUTH
     message.topic = topic_AUTH;
-    snprintf(
-      message.payload,
-      sizeof(message.payload),
-      "%02x%02x%02x%02x%02x%02x%02x%02x", 
-      uid[0],
-      uid[1],
-      uid[2],
-      uid[3],
-      uid[4],
-      uid[5],
-      uid[6],
-      uid[7]
-    );
+    formatUid(message.payload, sizeof(message.payload), uid, size);
     assert(xQueueSend(pub_queue, &message, portMAX_DELAY) == pdPASS);
 
     // Start timeout
@@ -342,33 +408,23 @@ void Tool::handleNewCard(uint8_t uid[10])
   }
   else if (state == DEV_INDUCT)
   {
-    if (memcmp(uid, current_uid, sizeof(uint8_t) * 10) != 0)
+    if (size == current_size && memcmp(uid, current_uid, sizeof(uint8_t) * size) != 0)
     {
       state = DEV_INDUCT_WAIT;
 
       // Send INDUCT
       message.topic = topic_INDUCT;
+      char current_uid_buffer[21];
+      char new_uid_buffer[21];
+      formatUid(current_uid_buffer, sizeof(current_uid_buffer), current_uid, current_size);
+      formatUid(new_uid_buffer, sizeof(new_uid_buffer), uid, size);
       snprintf(
-          message.payload,
-          sizeof(message.payload),
-          "%02x%02x%02x%02x%02x%02x%02x%02x:%02x%02x%02x%02x%02x%02x%02x%02x",
-          current_uid[0],
-          current_uid[1],
-          current_uid[2],
-          current_uid[3],
-          current_uid[4],
-          current_uid[5],
-          current_uid[6],
-          current_uid[7],
-          uid[0],
-          uid[1],
-          uid[2],
-          uid[3],
-          uid[4],
-          uid[5],
-          uid[6],
-          uid[7]
-          );
+        message.payload,
+        sizeof(message.payload),
+        "%s:%s",
+        current_uid_buffer,
+        new_uid_buffer
+      );
       assert(xQueueSend(pub_queue, &message, portMAX_DELAY) == pdPASS);
 
       // Start timeout
@@ -634,6 +690,7 @@ void Tool::clearUid()
 {
   // Clear current UID
   memset(current_uid, 0, sizeof(uint8_t) * 10);
+  current_size = 0;
 
   // Not an inductor
   is_inductor = false;
