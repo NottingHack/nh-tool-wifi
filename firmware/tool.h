@@ -113,6 +113,7 @@ private:
   // State
   ToolState state;
   led_event_t led_state;
+  bool relay_state;
 
   // Session data
   uint8_t current_uid[10];

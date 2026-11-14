@@ -52,6 +52,8 @@ void Tool::init(tool_params_t params) {
   connection_state_semaphore = params.connection_state_semaphore;
 
   clearUid();
+  memset(&led_state, sizeof(led_state), 0);
+  relay_state = 0;
 
   // Build topic string pool
   const char* topic_base = params.base_topic;
@@ -632,15 +634,21 @@ void Tool::ledSet(int index, bool state)
 void Tool::relayOn()
 {
   // Relay on
-  bool status = true;
-  assert(xQueueSend(relay_queue, &status, portMAX_DELAY) == pdPASS);
+  if (!relay_state)
+  {
+    relay_state = true;
+    assert(xQueueSend(relay_queue, &relay_state, portMAX_DELAY) == pdPASS);
+  }
 }
 
 void Tool::relayOff()
 {
   // Relay off
-  bool status = false;
-  assert(xQueueSend(relay_queue, &status, portMAX_DELAY) == pdPASS);
+  if (relay_state)
+  {
+    relay_state = false;
+    assert(xQueueSend(relay_queue, &relay_state, portMAX_DELAY) == pdPASS);
+  }
 }
 
 void Tool::setTimeout(int timeout)
