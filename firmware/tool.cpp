@@ -213,10 +213,10 @@ void Tool::runTask()
     }
     else if (state == DEV_IDLE)
     {
-      // All off
+      // Only state on
       ledOff(PIN_LED_TOOL);
       ledOff(PIN_LED_INDUCT);
-      ledOff(PIN_LED_STATE);
+      ledOn(PIN_LED_STATE);
 
       relayOff();
     }
@@ -270,6 +270,7 @@ void Tool::runTask()
     if (led_state.led_state != last_led_state)
     {
       assert(xQueueSend(led_queue, &led_state, portMAX_DELAY) == pdPASS);
+      last_led_state = led_state.led_state;
     }
 
     // Show session time every second while active

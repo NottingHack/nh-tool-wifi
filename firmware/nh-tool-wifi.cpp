@@ -209,7 +209,7 @@ int main()
 
   xTaskCreate(vButtonTask, "Button Task", 128, reinterpret_cast<void*>(&button_queue), 1, nullptr);
   xTaskCreate(vLEDTask, "LED Task", 128, reinterpret_cast<void*>(&led_queue), 1, nullptr);
-  xTaskCreate(vLEDTask, "Relay Task", 128, reinterpret_cast<void*>(&relay_queue), 1, nullptr);
+  xTaskCreate(vRelayTask, "Relay Task", 128, reinterpret_cast<void*>(&relay_queue), 1, nullptr);
 
   // Setup RFID task
   QueueHandle_t uid_queue = xQueueCreate(1, sizeof(MFRC522::Uid));
