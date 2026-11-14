@@ -16,9 +16,9 @@ IFAL =     f"nh/tools/{tool}/IFAL"
 
 # Cards
 cards = {
-    "AAAAAAAAAAAAAAAA": 'U',
-    "BBBBBBBBBBBBBBBB": 'M',
-    "CCCCCCCCCCCCCCCC": 'I',
+    "AAAAAAAA": 'U',
+    "BBBBBBBB": 'M',
+    "CCCCCCCC": 'I',
 }
 
 # The callback for when the client receives a CONNACK response from the server.
